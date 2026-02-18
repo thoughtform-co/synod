@@ -1,0 +1,90 @@
+/* Thoughtform brand tokens — Synod subset (dark default) */
+
+:root {
+  --radius: 0;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  --void: #050403;
+  --surface-0: #0A0908;
+  --surface-1: #0F0E0C;
+  --surface-2: #141210;
+
+  --dawn: #ECE3D6;
+  --dawn-70: rgba(236, 227, 214, 0.7);
+  --dawn-50: rgba(236, 227, 214, 0.5);
+  --dawn-30: rgba(236, 227, 214, 0.3);
+  --dawn-15: rgba(236, 227, 214, 0.15);
+  --dawn-08: rgba(236, 227, 214, 0.08);
+  --dawn-04: rgba(236, 227, 214, 0.04);
+
+  --gold: #CAA554;
+  --gold-dim: rgba(202, 165, 84, 0.4);
+  --gold-15: rgba(202, 165, 84, 0.15);
+  --gold-10: rgba(202, 165, 84, 0.1);
+
+  --font-sans: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'PT Mono', monospace;
+
+  /* shadcn-compatible HSL (dark) */
+  --background: 20 14% 4%;
+  --foreground: 32 25% 90%;
+  --card: 20 14% 6%;
+  --card-foreground: 32 25% 90%;
+  --popover: 20 14% 6%;
+  --popover-foreground: 32 25% 90%;
+  --primary: 32 25% 90%;
+  --primary-foreground: 20 14% 4%;
+  --secondary: 20 14% 15%;
+  --secondary-foreground: 32 25% 90%;
+  --muted: 20 14% 15%;
+  --muted-foreground: 32 25% 63%;
+  --accent: 45 60% 50%;
+  --accent-foreground: 20 14% 4%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 20 14% 15%;
+  --input: 20 14% 15%;
+  --ring: 45 60% 50%;
+}
+
+/* Light mode */
+:root.light,
+.light {
+  --void: #FFFFFF;
+  --surface-0: #F7F5F2;
+  --surface-1: #EFECE8;
+  --surface-2: #E8E5E0;
+
+  --dawn: #110F09;
+  --dawn-70: rgba(17, 15, 9, 0.7);
+  --dawn-50: rgba(17, 15, 9, 0.5);
+  --dawn-30: rgba(17, 15, 9, 0.3);
+  --dawn-15: rgba(17, 15, 9, 0.15);
+  --dawn-08: rgba(17, 15, 9, 0.08);
+  --dawn-04: rgba(17, 15, 9, 0.04);
+
+  --background: 0 0% 100%;
+  --foreground: 30 10% 6%;
+  --card: 30 15% 97%;
+  --card-foreground: 30 10% 6%;
+  --popover: 30 15% 97%;
+  --popover-foreground: 30 10% 6%;
+  --primary: 45 60% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 10% 94%;
+  --secondary-foreground: 30 10% 6%;
+  --muted: 30 10% 94%;
+  --muted-foreground: 30 10% 40%;
+  --accent: 45 60% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 30 10% 90%;
+  --input: 30 10% 90%;
+  --ring: 45 60% 50%;
+}
