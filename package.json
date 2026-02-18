@@ -14,7 +14,8 @@
     "electron:dev": "npm run build:electron && concurrently \"vite\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "npm run build:electron && vite build && electron-builder",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src electron --ext .ts,.tsx"
+    "lint": "eslint src electron --ext .ts,.tsx",
+    "postinstall": "electron-rebuild"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -22,10 +23,12 @@
   "dependencies": {
     "better-sqlite3": "^11.6.0",
     "googleapis": "^144.0.0",
+    "lucide-react": "^0.574.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.2.9",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
@@ -53,11 +56,15 @@
       "dist-electron/**/*"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "public/icon.ico"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "public/icon.icns",
       "category": "public.app-category.productivity"
     },

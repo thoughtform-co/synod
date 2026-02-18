@@ -45,6 +45,9 @@ export function startReminderEngine(): void {
   function tick(): void {
     const db = getDb();
     if (!db) return;
+    const account = getStoredJson(db, 'account') as { email?: string } | null;
+    if (!account?.email) return;
+
     const reminderMins = getReminderMinutes();
     const notified = getNotifiedIds();
 

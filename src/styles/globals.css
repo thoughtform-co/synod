@@ -23,6 +23,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ─── Root wrappers ─── */
+
 .synod-app {
   min-height: 100vh;
   display: flex;
@@ -42,144 +44,194 @@ body {
   color: var(--dawn-50);
 }
 
-/* App shell layout */
-.app-shell {
-  display: grid;
-  grid-template-columns: 200px 320px 1fr;
-  grid-template-rows: 1fr;
+/* ─── Shell: top bar + content ─── */
+
+.shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
-.app-shell__sidebar {
-  border-right: 1px solid var(--dawn-15);
+.shell-bar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: 0 var(--space-lg);
   background: var(--surface-0);
+  border-bottom: 1px solid var(--dawn-08);
+  flex-shrink: 0;
+  -webkit-app-region: drag;
 }
 
-.app-shell__thread-list {
-  border-right: 1px solid var(--dawn-15);
-  background: var(--surface-0);
-  overflow: auto;
+.shell-bar__brand {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  -webkit-app-region: no-drag;
+  user-select: none;
 }
 
-.app-shell__main {
+.shell-bar__tabs {
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.shell-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--space-sm);
+  height: 44px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--dawn-30);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+
+.shell-tab:hover {
+  color: var(--dawn-70);
+}
+
+.shell-tab--active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.shell-tab__label {
+  font-weight: 500;
+}
+
+.shell-bar__theme {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--dawn-08);
+  color: var(--dawn-30);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: color 120ms, border-color 120ms;
+}
+
+.shell-bar__theme:hover {
+  color: var(--dawn);
+  border-color: var(--dawn-15);
+}
+
+/* ─── Mail layout: sidebar + list + view ─── */
+
+.shell-mail {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 160px 300px 1fr;
+  min-height: 0;
+}
+
+.shell-mail__sidebar {
+  border-right: 1px solid var(--dawn-08);
+  background: var(--surface-0);
+  overflow-y: auto;
+}
+
+.shell-mail__list {
+  border-right: 1px solid var(--dawn-08);
+  background: var(--surface-0);
+  overflow-y: auto;
+}
+
+.shell-mail__view {
   background: var(--void);
-  overflow: auto;
+  overflow-y: auto;
 }
 
-.app-shell__empty {
+.shell-mail__empty {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
 }
 
-.app-shell__empty-text {
-  color: var(--dawn-30);
+.shell-mail__empty-text {
+  color: var(--dawn-15);
   font-family: var(--font-mono);
+  font-size: 0.8125rem;
 }
 
-.app-shell__calendar {
-  grid-column: 4;
-  width: 320px;
-  border-left: 1px solid var(--dawn-15);
-  background: var(--surface-0);
-  overflow: auto;
-}
-
-@media (max-width: 1024px) {
-  .app-shell {
-    grid-template-columns: 180px 1fr;
+@media (max-width: 900px) {
+  .shell-mail {
+    grid-template-columns: 140px 1fr;
   }
-  .app-shell__calendar {
-    grid-column: 1 / -1;
-    width: 100%;
-    max-height: 40vh;
-  }
-}
-
-@media (max-width: 640px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-  .app-shell__thread-list {
+  .shell-mail__view {
     display: none;
   }
 }
 
-/* Mail sidebar */
-.mail-sidebar {
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+@media (max-width: 640px) {
+  .shell-mail {
+    grid-template-columns: 1fr;
+  }
+  .shell-mail__sidebar {
+    display: none;
+  }
 }
 
-.mail-sidebar__brand {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: var(--gold);
+/* ─── Label nav (mail sidebar) ─── */
+
+.label-nav {
+  padding: var(--space-md) 0;
 }
 
-.mail-sidebar__nav {
+.label-nav__list {
   list-style: none;
 }
 
-.mail-sidebar__link {
+.label-nav__item {
   display: block;
-  padding: var(--space-xs) 0;
-  color: var(--dawn-70);
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-
-.mail-sidebar__link:hover {
-  color: var(--dawn);
-}
-
-.mail-sidebar__link--active {
-  color: var(--gold);
-}
-
-.mail-sidebar__calendar {
-  margin-top: auto;
-  padding: var(--space-sm) var(--space-md);
+  width: 100%;
+  padding: var(--space-xs) var(--space-md);
   background: transparent;
-  border: 1px solid var(--dawn-15);
-  color: var(--dawn);
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.mail-sidebar__calendar:hover {
-  border-color: var(--gold-15);
-  color: var(--gold);
-}
-
-.mail-sidebar__theme {
-  margin-top: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  background: transparent;
-  border: 1px solid var(--dawn-15);
+  border: none;
+  border-left: 2px solid transparent;
   color: var(--dawn-50);
-  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  text-align: left;
   cursor: pointer;
+  transition: color 100ms, background 100ms;
 }
 
-.mail-sidebar__theme:hover {
+.label-nav__item:hover {
   color: var(--dawn);
-  border-color: var(--dawn-30);
+  background: var(--dawn-04);
 }
 
-/* Thread list */
+.label-nav__item--active {
+  color: var(--gold);
+  border-left-color: var(--gold);
+  background: var(--gold-10);
+}
+
+/* ─── Thread list ─── */
+
 .thread-list__header {
-  padding: var(--space-md);
-  border-bottom: 1px solid var(--dawn-15);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--dawn-08);
 }
 
 .thread-list__title {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--dawn);
+  color: var(--dawn-70);
 }
 
 .thread-list__items {
@@ -189,13 +241,14 @@ body {
 .thread-list__item {
   display: block;
   width: 100%;
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   text-align: left;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--dawn-08);
+  border-bottom: 1px solid var(--dawn-04);
   color: var(--dawn);
   cursor: pointer;
+  transition: background 80ms;
 }
 
 .thread-list__item:hover {
@@ -209,25 +262,38 @@ body {
 
 .thread-list__from {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   margin-bottom: 2px;
 }
 
 .thread-list__subject {
   display: block;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--dawn-70);
+  line-height: 1.4;
 }
 
 .thread-list__snippet {
   display: block;
-  font-size: 0.75rem;
-  color: var(--dawn-50);
-  margin-top: 4px;
+  font-size: 0.6875rem;
+  color: var(--dawn-30);
+  margin-top: 3px;
 }
 
-/* Thread view */
+.thread-list__loading,
+.thread-list__error {
+  padding: var(--space-md);
+  color: var(--dawn-30);
+  font-size: 0.8125rem;
+}
+
+.thread-list__error {
+  color: #8B5A5A;
+}
+
+/* ─── Thread view ─── */
+
 .thread-view {
   padding: var(--space-xl);
 }
@@ -242,18 +308,12 @@ body {
   color: var(--dawn);
 }
 
-.thread-view__body {
-  color: var(--dawn-70);
-  font-size: 0.875rem;
-  line-height: 1.6;
-}
-
 .thread-view__messages {
   margin-bottom: var(--space-xl);
 }
 
 .thread-view__message {
-  border-bottom: 1px solid var(--dawn-08);
+  border-bottom: 1px solid var(--dawn-04);
   padding: var(--space-md) 0;
 }
 
@@ -265,20 +325,20 @@ body {
 }
 
 .thread-view__message-from {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--dawn);
 }
 
 .thread-view__message-date {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--dawn-50);
+  font-size: 0.6875rem;
+  color: var(--dawn-30);
 }
 
 .thread-view__message-body {
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: 0.8125rem;
+  line-height: 1.65;
   color: var(--dawn-70);
   white-space: pre-wrap;
   word-break: break-word;
@@ -286,14 +346,15 @@ body {
 
 .thread-view__error,
 .thread-view__loading {
-  color: var(--dawn-50);
-  font-size: 0.875rem;
+  color: var(--dawn-30);
+  font-size: 0.8125rem;
   padding: var(--space-xl);
 }
 
-/* Reply composer */
+/* ─── Reply composer ─── */
+
 .reply-composer {
-  border-top: 1px solid var(--dawn-15);
+  border-top: 1px solid var(--dawn-08);
   padding-top: var(--space-md);
   display: flex;
   flex-direction: column;
@@ -304,17 +365,18 @@ body {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
   background: var(--surface-0);
-  border: 1px solid var(--dawn-15);
+  border: 1px solid var(--dawn-08);
   color: var(--dawn);
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1.5;
   resize: vertical;
   min-height: 80px;
+  transition: border-color 120ms;
 }
 
 .reply-composer__input::placeholder {
-  color: var(--dawn-30);
+  color: var(--dawn-15);
 }
 
 .reply-composer__input:focus {
@@ -329,8 +391,9 @@ body {
   background: transparent;
   border: 1px solid var(--gold-15);
   color: var(--gold);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
+  transition: background 120ms, border-color 120ms;
 }
 
 .reply-composer__send:hover:not(:disabled) {
@@ -339,123 +402,115 @@ body {
 }
 
 .reply-composer__send:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.thread-list__loading,
-.thread-list__error {
-  padding: var(--space-md);
-  color: var(--dawn-50);
-  font-size: 0.875rem;
+/* ─── Calendar view (full-width) ─── */
+
+.shell-calendar {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--void);
 }
 
-.thread-list__error {
-  color: #8B5A5A;
+.cal-view {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg);
 }
 
-/* Calendar panel */
-.calendar-panel {
-  padding: var(--space-md);
-}
-
-.calendar-panel__header {
+.cal-view__header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-md);
+  justify-content: space-between;
+  margin-bottom: var(--space-xl);
 }
 
-.calendar-panel__title {
-  font-size: 0.875rem;
+.cal-view__title {
+  font-size: 1rem;
   font-weight: 600;
   color: var(--dawn);
 }
 
-.calendar-panel__close {
-  padding: var(--space-xs) var(--space-sm);
-  background: transparent;
-  border: 1px solid var(--dawn-15);
-  color: var(--dawn-70);
-  font-size: 0.8125rem;
-  cursor: pointer;
+.cal-view__reminder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dawn-30);
 }
 
-.calendar-panel__close:hover {
-  color: var(--dawn);
-}
-
-.calendar-panel__content {
-  color: var(--dawn-70);
-  font-size: 0.875rem;
-}
-
-.calendar-panel__reminder {
-  margin-bottom: var(--space-md);
-}
-
-.calendar-panel__label {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--dawn-50);
-  margin-bottom: var(--space-xs);
-}
-
-.calendar-panel__select {
-  width: 100%;
-  padding: var(--space-xs) var(--space-sm);
+.cal-view__select {
+  padding: 4px var(--space-xs);
   background: var(--surface-1);
-  border: 1px solid var(--dawn-15);
-  color: var(--dawn);
-  font-size: 0.875rem;
+  border: 1px solid var(--dawn-08);
+  color: var(--dawn-70);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
 }
 
-.calendar-panel__select:focus {
+.cal-view__select:focus {
   outline: none;
   border-color: var(--gold);
 }
 
-.calendar-panel__loading,
-.calendar-panel__empty {
-  color: var(--dawn-50);
-  font-size: 0.875rem;
+.cal-view__loading,
+.cal-view__empty {
+  color: var(--dawn-30);
+  font-size: 0.8125rem;
+  padding: var(--space-xl) 0;
 }
 
-.calendar-panel__events {
+.cal-view__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.cal-day__date {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--dawn-08);
+  margin-bottom: var(--space-xs);
+}
+
+.cal-day__events {
   list-style: none;
 }
 
-.calendar-panel__event {
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--dawn-08);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.cal-event {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+  align-items: baseline;
 }
 
-.calendar-panel__event-date {
+.cal-event__time {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--gold);
-}
-
-.calendar-panel__event-time {
   font-size: 0.75rem;
   color: var(--dawn-50);
 }
 
-.calendar-panel__event-summary {
+.cal-event__summary {
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--dawn);
 }
 
-/* Selection */
-::selection {
-  background: rgba(202, 165, 84, 0.4);
-  color: var(--void);
+.cal-event__location {
+  grid-column: 2;
+  font-size: 0.6875rem;
+  color: var(--dawn-30);
 }
 
-/* Connect view */
+/* ─── Connect view ─── */
+
 .connect-view {
   min-height: 100vh;
   display: flex;
@@ -475,24 +530,25 @@ body {
 
 .connect-view__subtitle,
 .connect-view__hint {
-  color: var(--dawn-70);
-  font-size: 0.875rem;
+  color: var(--dawn-50);
+  font-size: 0.8125rem;
   margin-bottom: var(--space-md);
   max-width: 360px;
+  line-height: 1.5;
 }
 
 .connect-view__hint code,
 .connect-view code {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--dawn-50);
+  font-size: 0.6875rem;
+  color: var(--dawn-30);
   background: var(--surface-1);
   padding: 2px 6px;
 }
 
 .connect-view__error {
   color: #8B5A5A;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   margin-bottom: var(--space-md);
 }
 
@@ -501,8 +557,9 @@ body {
   background: transparent;
   border: 1px solid var(--gold-15);
   color: var(--gold);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
+  transition: background 120ms, border-color 120ms;
 }
 
 .connect-view__button:hover:not(:disabled) {
@@ -511,24 +568,32 @@ body {
 }
 
 .connect-view__button:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* Scrollbar */
+/* ─── Selection ─── */
+
+::selection {
+  background: rgba(202, 165, 84, 0.4);
+  color: var(--void);
+}
+
+/* ─── Scrollbar ─── */
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--void);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--dawn-15);
+  background: var(--dawn-08);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--dawn-30);
+  background: var(--dawn-15);
 }
