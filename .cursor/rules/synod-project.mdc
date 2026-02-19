@@ -1,0 +1,23 @@
+---
+description: Synod project conventions — Electron + React desktop app for Thoughtform
+alwaysApply: true
+---
+
+# Synod Project
+
+Synod is a unified Gmail + Google Calendar desktop app built with Electron, React, TypeScript, and Vite for the Thoughtform brand.
+
+## Architecture
+
+- **Main process**: `electron/` — SQLite (better-sqlite3), Google OAuth, Gmail API, Calendar API, reminder engine
+- **Renderer**: `src/` — React components, feature modules in `src/features/`, layout in `src/components/layout/`
+- **IPC**: Preload script exposes `window.electronAPI` — all Google API calls go through IPC, never from the renderer directly
+- **Styling**: BEM CSS in `src/styles/globals.css` using Thoughtform design tokens from `src/styles/tokens.css`. Tailwind is configured but tokens are primary.
+
+## Conventions
+
+- Zero border-radius everywhere (`--radius: 0`)
+- Fonts: IBM Plex Sans (body) + PT Mono (brand, timestamps, metadata)
+- Feature-based file organization: `src/features/{mail,calendar,auth}/`
+- No default exports except `App.tsx`
+- Prefer named CSS classes over Tailwind utilities for structural layout

@@ -41,7 +41,7 @@ export function AppShell() {
             onClick={() => setActiveTab('mail')}
             aria-label="Mail"
           >
-            <Mail size={17} strokeWidth={1.6} />
+            <Mail size={18} strokeWidth={1.5} />
             <span className="shell-tab__label">Mail</span>
           </button>
           <button
@@ -50,7 +50,7 @@ export function AppShell() {
             onClick={() => setActiveTab('calendar')}
             aria-label="Calendar"
           >
-            <CalendarDays size={17} strokeWidth={1.6} />
+            <CalendarDays size={18} strokeWidth={1.5} />
             <span className="shell-tab__label">Calendar</span>
           </button>
         </nav>

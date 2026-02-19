@@ -53,7 +53,8 @@ body {
 }
 
 .shell-bar {
-  height: 44px;
+  position: relative;
+  height: 56px;
   display: flex;
   align-items: center;
   gap: var(--space-lg);
@@ -74,23 +75,26 @@ body {
 }
 
 .shell-bar__tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 2px;
+  gap: 4px;
   -webkit-app-region: no-drag;
 }
 
 .shell-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 var(--space-sm);
-  height: 44px;
+  gap: 8px;
+  padding: 0 var(--space-lg);
+  height: 56px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--dawn-30);
   font-family: var(--font-sans);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   cursor: pointer;
   transition: color 120ms, border-color 120ms;
 }

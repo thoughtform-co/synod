@@ -1,0 +1,13 @@
+---
+description: Thoughtform navigation UI grammar and design system for Synod
+globs: src/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# Thoughtform Design System
+
+When editing UI components or styles, read and follow the Thoughtform design skill at `C:\Users\buyss\.cursor\skills\thoughtform-design\SKILL.md`.
+
+Synod is a **restrained** product in the Thoughtform family — use the Navigation UI Grammar at low intensity: Heading Indicators for active states, Course Lines for structure, Signal Strength for hierarchy, Depth Layers for surface elevation. Skip Telemetry Rails, Viewport Frames, and Compass Anchors unless building settings or dashboard views.
+
+Refer to `references/components.md` in the skill before creating any new component — an existing primitive likely covers it.
