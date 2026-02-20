@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Clock, Keyboard, Users } from 'lucide-react';
+import { Sun, Moon, Leaf, Clock, Keyboard, Users } from 'lucide-react';
+import type { ThemeMode } from '@/app/App';
 import { storeGet, storeSet } from '@/lib/db/sqlite';
 import type { AccountsListResult } from '@/vite-env.d';
 import { connectGoogleAccount } from '@/features/auth/googleOAuth';
@@ -19,7 +20,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps) {
   const [accountsResult, setAccountsResult] = useState<AccountsListResult | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<ThemeMode>('dark');
   const [reminderMins, setReminderMins] = useState(15);
   const [addingAccount, setAddingAccount] = useState(false);
 
@@ -28,8 +29,8 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
   }, []);
 
   useEffect(() => {
-    storeGet<'light' | 'dark'>('theme').then((t) => {
-      if (t) setTheme(t);
+    storeGet<ThemeMode>('theme').then((t) => {
+      if (t === 'dark' || t === 'light' || t === 'atreides') setTheme(t);
     });
   }, []);
 
@@ -37,10 +38,11 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
     window.electronAPI?.reminder?.getMinutes().then((m) => setReminderMins(m));
   }, []);
 
-  const handleThemeChange = (next: 'light' | 'dark') => {
+  const handleThemeChange = (next: ThemeMode) => {
     setTheme(next);
     storeSet('theme', next);
     document.documentElement.classList.toggle('light', next === 'light');
+    document.documentElement.classList.toggle('atreides', next === 'atreides');
   };
 
   const handleReminderChange = (mins: number) => {
@@ -157,10 +159,19 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
 
         <section className="settings-section" aria-labelledby="settings-theme">
           <h3 id="settings-theme" className="settings-section__title">
-            {theme === 'dark' ? <Moon size={14} strokeWidth={1.5} /> : <Sun size={14} strokeWidth={1.5} />}
+            {theme === 'dark' && <Moon size={14} strokeWidth={1.5} />}
+            {theme === 'light' && <Sun size={14} strokeWidth={1.5} />}
+            {theme === 'atreides' && <Leaf size={14} strokeWidth={1.5} />}
             Theme
           </h3>
           <div className="settings-theme-toggle">
+            <button
+              type="button"
+              className={`settings-theme-btn ${theme === 'dark' ? 'settings-theme-btn--active' : ''}`}
+              onClick={() => handleThemeChange('dark')}
+            >
+              Dark
+            </button>
             <button
               type="button"
               className={`settings-theme-btn ${theme === 'light' ? 'settings-theme-btn--active' : ''}`}
@@ -170,10 +181,10 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
             </button>
             <button
               type="button"
-              className={`settings-theme-btn ${theme === 'dark' ? 'settings-theme-btn--active' : ''}`}
-              onClick={() => handleThemeChange('dark')}
+              className={`settings-theme-btn ${theme === 'atreides' ? 'settings-theme-btn--active' : ''}`}
+              onClick={() => handleThemeChange('atreides')}
             >
-              Dark
+              Atreides
             </button>
           </div>
         </section>

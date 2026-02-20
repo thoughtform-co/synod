@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Check, ChevronRight, Clock, ListTodo, Trash2 } from 'lucide-react';
 import { fetchThread, doneThread, deleteThread, type ThreadDetail } from '../mailRepository';
+import { formatEmailDate } from '../utils';
 import { ReplyComposer } from './ReplyComposer';
 
 interface ThreadViewProps {
   threadId: string;
   activeAccountId: string | null;
+  currentUserEmail?: string | null;
   onDone?: (threadId: string) => void;
   onDelete?: (threadId: string) => void;
 }
@@ -19,7 +21,13 @@ function isFocusInEditable(): boolean {
   return false;
 }
 
-export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: ThreadViewProps) {
+function isFromCurrentUser(from: string, currentUserEmail: string | null | undefined): boolean {
+  if (!currentUserEmail) return false;
+  const email = currentUserEmail.toLowerCase();
+  return from.toLowerCase().includes(email);
+}
+
+export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone, onDelete }: ThreadViewProps) {
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -231,6 +239,7 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
         </div>
       </header>
       <div className="thread-view__messages">
+        <ReplyComposer ref={replyComposerRef} onSend={handleSendReply} disabled={sending} />
         {thread.messages.length > 2 && expandedIds.size < thread.messages.length && (
           <button
             type="button"
@@ -240,14 +249,15 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
             {thread.messages.length - expandedIds.size} collapsed message{thread.messages.length - expandedIds.size !== 1 ? 's' : ''}
           </button>
         )}
-        {thread.messages.map((msg) => {
+        {[...thread.messages].reverse().map((msg) => {
           const isExpanded = expandedIds.has(msg.id);
           const snippet = (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ');
+          const fromMe = isFromCurrentUser(msg.from, currentUserEmail ?? null);
           return (
             <div
               key={msg.id}
               ref={(el) => { if (el) msgRefs.current.set(msg.id, el); else msgRefs.current.delete(msg.id); }}
-              className={`thread-view__message ${isExpanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'}`}
+              className={`thread-view__message ${isExpanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'} ${fromMe ? 'thread-view__message--from-me' : ''}`}
             >
               <button
                 type="button"
@@ -264,7 +274,7 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
                 {!isExpanded && (
                   <span className="thread-view__message-snippet">{snippet || '(No content)'}</span>
                 )}
-                <span className="thread-view__message-date">{msg.date}</span>
+                <span className="thread-view__message-date">{formatEmailDate(msg.date)}</span>
               </button>
               {isExpanded && (
                 <div
@@ -278,7 +288,6 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
           );
         })}
       </div>
-      <ReplyComposer ref={replyComposerRef} onSend={handleSendReply} disabled={sending} />
     </div>
   );
 }

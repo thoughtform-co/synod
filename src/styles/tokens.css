@@ -54,6 +54,20 @@
   --ring: 45 60% 50%;
 }
 
+/* Atreides theme (Dune-inspired: green-tinted surfaces, spice, nebulae) */
+:root.atreides,
+.atreides {
+  --surface-0: #0C0E0B;
+  --surface-1: #111410;
+  --surface-2: #161A14;
+  --atreides: #253025;
+  --atreides-light: #364B33;
+  --atreides-dim: rgba(37, 48, 37, 0.15);
+  --spice: #A67C52;
+  --spice-dim: rgba(166, 124, 82, 0.15);
+  --nebulae: #1B2130;
+}
+
 /* Light mode */
 :root.light,
 .light {

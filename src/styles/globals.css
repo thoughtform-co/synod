@@ -1072,18 +1072,52 @@ body {
 /* ─── Reply composer ─── */
 
 .reply-composer {
-  border-top: 1px solid var(--dawn-08);
-  padding-top: var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   flex-shrink: 0;
 }
 
+.reply-composer--inline {
+  border-bottom: 1px solid var(--dawn-04);
+  border-left: 3px solid var(--gold);
+  padding: var(--space-sm) 0 var(--space-md) var(--space-md);
+  margin-left: 0;
+  background: var(--surface-0);
+}
+
+.reply-composer__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: var(--space-xs);
+}
+
+.reply-composer__from {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--dawn);
+}
+
+.reply-composer__label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-30);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.reply-composer__date {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-30);
+  margin-left: auto;
+}
+
 .reply-composer__input {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
-  background: var(--surface-0);
+  background: var(--surface-1);
   border: 1px solid var(--dawn-08);
   color: var(--dawn);
   font-family: var(--font-sans);
@@ -1092,6 +1126,7 @@ body {
   resize: vertical;
   min-height: 80px;
   transition: border-color 120ms;
+  box-sizing: border-box;
 }
 
 .reply-composer__input::placeholder {
@@ -1104,8 +1139,12 @@ body {
   box-shadow: 0 0 0 1px var(--gold-15);
 }
 
+.reply-composer__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .reply-composer__send {
-  align-self: flex-end;
   padding: var(--space-xs) var(--space-lg);
   background: transparent;
   border: 1px solid var(--gold-15);
@@ -1123,6 +1162,24 @@ body {
 .reply-composer__send:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Atreides theme overrides (when .atreides is on root) */
+.atreides .reply-composer--inline {
+  border-left-color: var(--atreides-light);
+}
+
+.atreides .thread-view__expand-all {
+  color: var(--spice);
+}
+
+.atreides .thread-view__expand-all:hover {
+  color: var(--spice);
+  opacity: 0.9;
+}
+
+.atreides .thread-view__message--from-me {
+  background: var(--atreides-dim);
 }
 
 /* ─── Calendar view (full-width) ─── */

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Mail, CalendarDays, Sun, Moon, Minus, Square, X } from 'lucide-react';
+import { Mail, CalendarDays, Sun, Moon, Leaf, Minus, Square, X } from 'lucide-react';
+import type { ThemeMode } from '@/app/App';
 import { MailSidebar } from '@/features/mail/components/MailSidebar';
 import { ThreadList } from '@/features/mail/components/ThreadList';
 import { ThreadView } from '@/features/mail/components/ThreadView';
@@ -27,7 +28,7 @@ export function AppShell() {
   const [activeTab, setActiveTab] = useState<Tab>('mail');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [removedThreadIds, setRemovedThreadIds] = useState<string[]>([]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<ThemeMode>('dark');
   const [accountsResult, setAccountsResult] = useState<AccountsListResult | null>(null);
   const [mailView, setMailView] = useState<MailView>(DEFAULT_MAIL_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -97,19 +98,23 @@ export function AppShell() {
   }, [refreshAccounts]);
 
   useEffect(() => {
-    storeGet<'light' | 'dark'>('theme').then((t) => {
-      if (t) {
+    storeGet<ThemeMode>('theme').then((t) => {
+      if (t === 'dark' || t === 'light' || t === 'atreides') {
         setTheme(t);
         document.documentElement.classList.toggle('light', t === 'light');
+        document.documentElement.classList.toggle('atreides', t === 'atreides');
       }
     });
   }, []);
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const order: ThemeMode[] = ['dark', 'light', 'atreides'];
+    const idx = order.indexOf(theme);
+    const next = order[(idx + 1) % order.length];
     setTheme(next);
     storeSet('theme', next);
     document.documentElement.classList.toggle('light', next === 'light');
+    document.documentElement.classList.toggle('atreides', next === 'atreides');
   };
 
   const handleSetActive = useCallback((accountId: string) => {
@@ -171,9 +176,11 @@ export function AppShell() {
             type="button"
             className="shell-bar__theme"
             onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : theme === 'light' ? 'Switch to Atreides mode' : 'Switch to dark mode'}
           >
-            {theme === 'dark' ? <Sun size={15} strokeWidth={1.5} /> : <Moon size={15} strokeWidth={1.5} />}
+            {theme === 'dark' && <Sun size={15} strokeWidth={1.5} />}
+            {theme === 'light' && <Moon size={15} strokeWidth={1.5} />}
+            {theme === 'atreides' && <Leaf size={15} strokeWidth={1.5} />}
           </button>
           <div className="shell-bar__controls">
             <button
@@ -256,6 +263,7 @@ export function AppShell() {
               <ThreadView
                 threadId={selectedThreadId}
                 activeAccountId={activeAccountId}
+                currentUserEmail={activeAccountId}
                 onDone={(threadId) => {
                   setRemovedThreadIds((prev) => [...prev, threadId]);
                   setSelectedThreadId(null);

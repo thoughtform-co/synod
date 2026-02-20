@@ -4,10 +4,12 @@ import { ConnectGoogleAccountView } from '@/features/auth/ConnectGoogleAccountVi
 import { getStoredAccount } from '@/features/auth/authStore';
 import { storeGet } from '@/lib/db/sqlite';
 
-function applyTheme(mode: 'light' | 'dark') {
+export type ThemeMode = 'dark' | 'light' | 'atreides';
+
+function applyTheme(mode: ThemeMode) {
   const root = document.documentElement;
-  if (mode === 'light') root.classList.add('light');
-  else root.classList.remove('light');
+  root.classList.toggle('light', mode === 'light');
+  root.classList.toggle('atreides', mode === 'atreides');
 }
 
 export default function App() {
@@ -21,8 +23,8 @@ export default function App() {
 
   useEffect(() => {
     if (!mounted) return;
-    storeGet<'light' | 'dark'>('theme').then((saved) => {
-      if (saved === 'light' || saved === 'dark') applyTheme(saved);
+    storeGet<ThemeMode>('theme').then((saved) => {
+      if (saved === 'light' || saved === 'dark' || saved === 'atreides') applyTheme(saved);
       else if (window.matchMedia?.('(prefers-color-scheme: light)').matches) applyTheme('light');
     });
   }, [mounted]);
