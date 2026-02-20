@@ -21,16 +21,21 @@ interface ThreadListProps {
   mailView: MailView;
   selectedThreadId: string | null;
   onSelectThread: (id: string | null) => void;
+  /** Thread IDs just mutated (done/delete); omit from list so they disappear immediately. */
+  removedThreadIds?: string[];
 }
 
 const PAGE_SIZE = 30;
 
-export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread }: ThreadListProps) {
+export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread, removedThreadIds = [] }: ThreadListProps) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const removedSet = removedThreadIds.length > 0 ? new Set(removedThreadIds) : null;
+  const visibleThreads = removedSet ? threads.filter((t) => !removedSet.has(t.id)) : threads;
 
   useEffect(() => {
     if (activeAccountId === undefined) return;
@@ -83,7 +88,7 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
       ) : (
         <>
           <ul className="thread-list__items">
-            {threads.map((t) => (
+            {visibleThreads.map((t) => (
               <li key={t.id}>
                 <button
                   type="button"

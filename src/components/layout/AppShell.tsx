@@ -26,12 +26,18 @@ const DEFAULT_LIST = 320;
 export function AppShell() {
   const [activeTab, setActiveTab] = useState<Tab>('mail');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [removedThreadIds, setRemovedThreadIds] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [accountsResult, setAccountsResult] = useState<AccountsListResult | null>(null);
   const [mailView, setMailView] = useState<MailView>(DEFAULT_MAIL_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR);
   const [listWidth, setListWidth] = useState(DEFAULT_LIST);
+
+  const mailViewKey = mailView.type === 'label' ? mailView.labelId : mailView.query;
+  useEffect(() => {
+    setRemovedThreadIds([]);
+  }, [mailView.type, mailViewKey]);
   const resizeRef = useRef<{
     which: 'sidebar' | 'list';
     startX: number;
@@ -232,6 +238,7 @@ export function AppShell() {
               mailView={mailView}
               selectedThreadId={selectedThreadId}
               onSelectThread={setSelectedThreadId}
+              removedThreadIds={removedThreadIds}
             />
           </section>
           <div
@@ -249,8 +256,14 @@ export function AppShell() {
               <ThreadView
                 threadId={selectedThreadId}
                 activeAccountId={activeAccountId}
-                onDone={() => setSelectedThreadId(null)}
-                onDelete={() => setSelectedThreadId(null)}
+                onDone={(threadId) => {
+                  setRemovedThreadIds((prev) => [...prev, threadId]);
+                  setSelectedThreadId(null);
+                }}
+                onDelete={(threadId) => {
+                  setRemovedThreadIds((prev) => [...prev, threadId]);
+                  setSelectedThreadId(null);
+                }}
               />
             ) : (
               <div className="shell-mail__empty">

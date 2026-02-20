@@ -211,6 +211,19 @@ body {
   color: var(--alert);
 }
 
+/* Light mode: unify top bar, notch, and mail chrome to same light brown */
+.light .shell-bar,
+.light .shell-bar__notch,
+.light .shell-bar__left,
+.light .shell-bar__right {
+  background: var(--surface-0);
+}
+
+.light .shell-mail__sidebar,
+.light .shell-mail__list {
+  background: var(--surface-0);
+}
+
 /* ─── Mail layout: sidebar + list + view ─── */
 
 .shell-mail {
@@ -974,10 +987,27 @@ body {
   word-break: break-word;
   padding: var(--space-xs) 0 var(--space-md) 22px;
   overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .thread-view__message-body--html {
   white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.thread-view__message-body--html * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.thread-view__message-body--html div,
+.thread-view__message-body--html p {
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 .thread-view__message-body--html img {

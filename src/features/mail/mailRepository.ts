@@ -78,35 +78,60 @@ function getHeader(msg: GmailMessage, name: string): string {
   return h?.value ?? '';
 }
 
+type PartLike = {
+  mimeType?: string;
+  body?: { data?: string };
+  parts?: PartLike[];
+};
+
+function collectBodiesFromPart(part: PartLike): { plain: string; html: string } {
+  let plain = '';
+  let html = '';
+  const mime = (part.mimeType ?? '').toLowerCase();
+
+  if (part.body?.data) {
+    const decoded = decodeBase64Url(part.body.data);
+    if (mime === 'text/plain') plain = decoded;
+    else if (mime === 'text/html') html = decoded;
+  }
+
+  if (part.parts?.length) {
+    for (const p of part.parts) {
+      const child = collectBodiesFromPart(p);
+      if (child.plain) plain = child.plain;
+      if (child.html) html = child.html;
+    }
+  }
+
+  return { plain, html };
+}
+
 function getBodyPlain(msg: GmailMessage): string {
   const payload = msg.payload;
   if (!payload) return msg.snippet;
+  const root: PartLike = {
+    mimeType: payload.mimeType,
+    body: payload.body,
+    parts: payload.parts,
+  };
+  const { plain, html } = collectBodiesFromPart(root);
+  if (plain) return plain;
+  if (html) return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   if (payload.body?.data) return decodeBase64Url(payload.body.data);
-  const parts = payload.parts;
-  if (parts) {
-    const textPart = parts.find((p) => p.mimeType === 'text/plain');
-    if (textPart?.body?.data) return decodeBase64Url(textPart.body.data);
-    const htmlPart = parts.find((p) => p.mimeType === 'text/html');
-    if (htmlPart?.body?.data) {
-      const html = decodeBase64Url(htmlPart.body.data);
-      return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-  }
   return msg.snippet;
 }
 
 function getBodyHtml(msg: GmailMessage): string {
   const payload = msg.payload;
   if (!payload) return '';
-  const parts = payload.parts;
-  if (parts) {
-    const htmlPart = parts.find((p) => p.mimeType === 'text/html');
-    if (htmlPart?.body?.data) {
-      const raw = decodeBase64Url(htmlPart.body.data);
-      return sanitizeHtml(raw);
-    }
-  }
-  if (payload.body?.data && payload.mimeType === 'text/html') {
+  const root: PartLike = {
+    mimeType: payload.mimeType,
+    body: payload.body,
+    parts: payload.parts,
+  };
+  const { html } = collectBodiesFromPart(root);
+  if (html) return sanitizeHtml(html);
+  if (payload.body?.data && (payload.mimeType ?? '').toLowerCase() === 'text/html') {
     return sanitizeHtml(decodeBase64Url(payload.body.data));
   }
   return '';
