@@ -30,6 +30,33 @@ export function initDb(): void {
       FOREIGN KEY (account_id) REFERENCES accounts(id)
     );
   `);
+
+  runMigration(db);
+}
+
+/** Migrate legacy single account (kv.account) to active_account + accounts_order. */
+function runMigration(db: Database.Database): void {
+  const hasActive = db.prepare('SELECT 1 FROM kv WHERE key = ?').get('active_account');
+  const hasOrder = db.prepare('SELECT 1 FROM kv WHERE key = ?').get('accounts_order');
+  if (hasActive && hasOrder) return;
+
+  const legacyRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('account') as { value: string } | undefined;
+  if (legacyRow) {
+    try {
+      const legacy = JSON.parse(legacyRow.value) as { email?: string };
+      const email = legacy?.email;
+      if (email && typeof email === 'string') {
+        if (!hasActive) {
+          db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(email));
+        }
+        if (!hasOrder) {
+          db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify([email]));
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
 }
 
 export function getDb(): Database.Database | null {

@@ -104,6 +104,16 @@ export function runOAuthFlow(clientId: string, clientSecret: string): Promise<OA
             'google_client_secret',
             JSON.stringify(clientSecret)
           );
+          const orderRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('accounts_order') as { value: string } | undefined;
+          const order: string[] = orderRow ? JSON.parse(orderRow.value) : [];
+          if (!order.includes(email)) {
+            order.push(email);
+            db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify(order));
+          }
+          const activeRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('active_account') as { value: string } | undefined;
+          if (!activeRow) {
+            db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(email));
+          }
         }
 
         res.writeHead(200, { 'Content-Type': 'text/html' });

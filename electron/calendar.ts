@@ -6,12 +6,18 @@ function getStoredJson(db: import('better-sqlite3').Database, key: string): unkn
   return row ? JSON.parse(row.value) : null;
 }
 
-function getCalendarClient() {
+function getActiveAccountId(db: import('better-sqlite3').Database): string | null {
+  const active = getStoredJson(db, 'active_account') as string | null;
+  if (active && typeof active === 'string') return active;
+  const legacy = getStoredJson(db, 'account') as { email?: string } | null;
+  return legacy?.email && typeof legacy.email === 'string' ? legacy.email : null;
+}
+
+function getCalendarClient(accountId?: string) {
   const db = getDb();
   if (!db) throw new Error('Database not initialized');
 
-  const account = getStoredJson(db, 'account') as { email?: string } | null;
-  const email = account?.email;
+  const email = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
   if (!email) throw new Error('No account connected');
 
   const clientId = getStoredJson(db, 'google_client_id') as string | null;
@@ -44,8 +50,8 @@ export interface CalendarEvent {
 
 const DEFAULT_DAYS_AHEAD = 14;
 
-export function listEvents(daysAhead: number = DEFAULT_DAYS_AHEAD): Promise<CalendarEvent[]> {
-  const calendar = getCalendarClient();
+export function listEvents(accountId?: string, daysAhead: number = DEFAULT_DAYS_AHEAD): Promise<CalendarEvent[]> {
+  const calendar = getCalendarClient(accountId);
   const now = new Date();
   const endDate = new Date(now);
   endDate.setDate(endDate.getDate() + daysAhead);
@@ -79,4 +85,21 @@ export function listEvents(daysAhead: number = DEFAULT_DAYS_AHEAD): Promise<Cale
       }
       return events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
     });
+}
+
+export type RsvpResponse = 'accepted' | 'tentative' | 'declined';
+
+export function respondToEvent(
+  accountId: string | undefined,
+  eventId: string,
+  response: RsvpResponse
+): Promise<void> {
+  const calendar = getCalendarClient(accountId);
+  return calendar.events
+    .patch({
+      calendarId: 'primary',
+      eventId,
+      requestBody: { responseStatus: response } as import('googleapis').calendar_v3.Schema$Event,
+    })
+    .then(() => undefined);
 }

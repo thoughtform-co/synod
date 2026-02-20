@@ -1,7 +1,8 @@
 import type { GmailMessage } from '@/vite-env.d';
+import { sanitizeHtml } from '@/lib/sanitizeHtml';
 
 function getGmailAPI() {
-  return (window as Window & { electronAPI?: { gmail?: typeof window.electronAPI.gmail } }).electronAPI?.gmail;
+  return typeof window !== 'undefined' ? window.electronAPI?.gmail : undefined;
 }
 
 export interface ThreadSummary {
@@ -10,16 +11,35 @@ export interface ThreadSummary {
 }
 
 export async function fetchInboxThreads(
+  accountId: string | undefined,
   maxResults: number = 30,
   pageToken?: string
 ): Promise<{ threads: ThreadSummary[]; nextPageToken?: string }> {
   const gmail = getGmailAPI();
   if (!gmail) return { threads: [] };
-  const { threads, nextPageToken } = await gmail.listThreads('INBOX', maxResults, pageToken);
+  const { threads, nextPageToken } = await gmail.listThreads(accountId, 'INBOX', maxResults, pageToken);
   return {
     threads: threads.map((t) => ({ id: t.id, snippet: t.snippet })),
     nextPageToken,
   };
+}
+
+export type MailView = { type: 'label'; labelId: string } | { type: 'query'; query: string };
+
+export async function fetchThreadsByView(
+  accountId: string | undefined,
+  view: MailView,
+  maxResults: number = 30,
+  pageToken?: string
+): Promise<{ threads: ThreadSummary[]; nextPageToken?: string }> {
+  const gmail = getGmailAPI();
+  if (!gmail) return { threads: [] };
+  if (view.type === 'query') {
+    const { threads, nextPageToken } = await gmail.searchThreads(accountId, view.query, maxResults, pageToken);
+    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet })), nextPageToken };
+  }
+  const { threads, nextPageToken } = await gmail.listThreads(accountId, view.labelId, maxResults, pageToken);
+  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet })), nextPageToken };
 }
 
 export interface ThreadMessage {
@@ -29,6 +49,7 @@ export interface ThreadMessage {
   subject: string;
   date: string;
   bodyPlain: string;
+  bodyHtml: string;
   snippet: string;
 }
 
@@ -74,10 +95,27 @@ function getBodyPlain(msg: GmailMessage): string {
   return msg.snippet;
 }
 
-export async function fetchThread(threadId: string): Promise<ThreadDetail | null> {
+function getBodyHtml(msg: GmailMessage): string {
+  const payload = msg.payload;
+  if (!payload) return '';
+  const parts = payload.parts;
+  if (parts) {
+    const htmlPart = parts.find((p) => p.mimeType === 'text/html');
+    if (htmlPart?.body?.data) {
+      const raw = decodeBase64Url(htmlPart.body.data);
+      return sanitizeHtml(raw);
+    }
+  }
+  if (payload.body?.data && payload.mimeType === 'text/html') {
+    return sanitizeHtml(decodeBase64Url(payload.body.data));
+  }
+  return '';
+}
+
+export async function fetchThread(accountId: string | undefined, threadId: string): Promise<ThreadDetail | null> {
   const gmail = getGmailAPI();
   if (!gmail) return null;
-  const { id, messages } = await gmail.getThread(threadId);
+  const { id, messages } = await gmail.getThread(accountId, threadId);
   return {
     id,
     messages: messages.map((m) => ({
@@ -87,13 +125,27 @@ export async function fetchThread(threadId: string): Promise<ThreadDetail | null
       subject: getHeader(m, 'Subject'),
       date: getHeader(m, 'Date'),
       bodyPlain: getBodyPlain(m),
+      bodyHtml: getBodyHtml(m),
       snippet: m.snippet,
     })),
   };
 }
 
-export async function sendReply(threadId: string, bodyText: string): Promise<{ id: string }> {
+export async function sendReply(accountId: string | undefined, threadId: string, bodyText: string): Promise<{ id: string }> {
   const gmail = getGmailAPI();
   if (!gmail) throw new Error('Gmail not available');
-  return gmail.sendReply(threadId, bodyText);
+  return gmail.sendReply(accountId, threadId, bodyText);
+}
+
+/** Done = archive + mark read: remove INBOX and UNREAD. */
+export async function doneThread(accountId: string | undefined, threadId: string): Promise<void> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.modifyLabels(accountId, threadId, [], ['INBOX', 'UNREAD']);
+}
+
+export async function deleteThread(accountId: string | undefined, threadId: string): Promise<void> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.trashThread(accountId, threadId);
 }

@@ -9,7 +9,7 @@ export interface CalendarEvent {
 }
 
 function getCalendarAPI() {
-  return (window as Window & { electronAPI?: { calendar?: { listEvents: (days?: number) => Promise<CalendarEvent[]> } } })
+  return (window as Window & { electronAPI?: { calendar?: { listEvents: (accountId?: string, daysAhead?: number) => Promise<CalendarEvent[]> } } })
     .electronAPI?.calendar;
 }
 
@@ -18,10 +18,10 @@ function getReminderAPI() {
     .electronAPI?.reminder;
 }
 
-export async function fetchEvents(daysAhead: number = 14): Promise<CalendarEvent[]> {
+export async function fetchEvents(accountId: string | undefined, daysAhead: number = 14): Promise<CalendarEvent[]> {
   const api = getCalendarAPI();
   if (!api) return [];
-  return api.listEvents(daysAhead);
+  return api.listEvents(accountId, daysAhead);
 }
 
 export async function getReminderMinutes(): Promise<number> {

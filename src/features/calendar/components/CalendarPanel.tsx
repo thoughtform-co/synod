@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getActiveAccountId } from '@/features/auth/authStore';
 import { fetchEvents, getReminderMinutes, setReminderMinutes, type CalendarEvent } from '../calendarClient';
 
 interface CalendarPanelProps {
@@ -9,11 +10,17 @@ export function CalendarPanel({ onClose }: CalendarPanelProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [reminderMins, setReminderMins] = useState(15);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
 
   useEffect(() => {
+    getActiveAccountId().then(setActiveAccountId);
+  }, []);
+
+  useEffect(() => {
+    if (activeAccountId === undefined) return;
     let cancelled = false;
     setLoading(true);
-    fetchEvents(14)
+    fetchEvents(activeAccountId ?? undefined, 14)
       .then((list) => {
         if (!cancelled) setEvents(list);
       })
@@ -21,7 +28,7 @@ export function CalendarPanel({ onClose }: CalendarPanelProps) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [activeAccountId]);
 
   useEffect(() => {
     getReminderMinutes().then(setReminderMins);

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ConnectGoogleAccountView } from '@/features/auth/ConnectGoogleAccountView';
 import { getStoredAccount } from '@/features/auth/authStore';
-import { storeGet, storeSet } from '@/lib/db/sqlite';
+import { storeGet } from '@/lib/db/sqlite';
 
 function applyTheme(mode: 'light' | 'dark') {
   const root = document.documentElement;

@@ -2,8 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { initDb, getDb } from './db';
 import { runOAuthFlow } from './oauth';
-import { listThreads, getThread, buildAndSendReply, getLabelIds } from './gmail';
-import { listEvents } from './calendar';
+import { listThreads, getThread, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
+import { listEvents, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
 
 let mainWindow: BrowserWindow | null = null;
@@ -74,19 +74,84 @@ ipcMain.handle(
 
 ipcMain.handle(
   'gmail:listThreads',
-  (_event, labelId: string, maxResults: number, pageToken?: string) =>
-    listThreads(labelId, maxResults, pageToken)
+  (_event, accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string) =>
+    listThreads(accountId, labelId, maxResults, pageToken)
 );
-
-ipcMain.handle('gmail:getThread', (_event, threadId: string) => getThread(threadId));
-
-ipcMain.handle('gmail:sendReply', (_event, threadId: string, bodyText: string) =>
-  buildAndSendReply(threadId, bodyText)
+ipcMain.handle('gmail:getThread', (_event, accountId: string | undefined, threadId: string) =>
+  getThread(accountId, threadId)
 );
-
+ipcMain.handle('gmail:sendReply', (_event, accountId: string | undefined, threadId: string, bodyText: string) =>
+  buildAndSendReply(accountId, threadId, bodyText)
+);
 ipcMain.handle('gmail:getLabelIds', () => getLabelIds());
+ipcMain.handle(
+  'gmail:modifyLabels',
+  (_event, accountId: string | undefined, threadId: string, addLabelIds: string[], removeLabelIds: string[]) =>
+    modifyLabels(accountId, threadId, addLabelIds, removeLabelIds)
+);
+ipcMain.handle('gmail:trashThread', (_event, accountId: string | undefined, threadId: string) =>
+  trashThread(accountId, threadId)
+);
+ipcMain.handle(
+  'gmail:searchThreads',
+  (_event, accountId: string | undefined, query: string, maxResults: number, pageToken?: string) =>
+    searchThreads(accountId, query, maxResults, pageToken)
+);
+ipcMain.handle('gmail:listLabels', (_event, accountId: string | undefined) => listLabels(accountId));
 
-ipcMain.handle('calendar:listEvents', (_event, daysAhead?: number) => listEvents(daysAhead));
+ipcMain.handle('calendar:listEvents', (_event, accountId: string | undefined, daysAhead?: number) =>
+  listEvents(accountId, daysAhead)
+);
+ipcMain.handle(
+  'calendar:respondToEvent',
+  (_event, accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') =>
+    respondToEvent(accountId, eventId, response)
+);
+
+// Accounts
+ipcMain.handle('accounts:list', () => {
+  const db = getDb();
+  if (!db) return { accounts: [], activeId: null, accountsOrder: [] };
+  const orderRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('accounts_order') as { value: string } | undefined;
+  const accountsOrder: string[] = orderRow ? JSON.parse(orderRow.value) : [];
+  const activeRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('active_account') as { value: string } | undefined;
+  const activeId = activeRow ? JSON.parse(activeRow.value) as string : null;
+  const rows = db.prepare('SELECT id, email FROM accounts ORDER BY id').all() as { id: string; email: string }[];
+  const accounts = rows.map((r) => ({ id: r.id, email: r.email }));
+  const ordered = accountsOrder.length
+    ? accountsOrder
+        .map((id) => accounts.find((a) => a.id === id))
+        .filter(Boolean) as { id: string; email: string }[]
+    : accounts;
+  return { accounts: ordered, activeId, accountsOrder };
+});
+ipcMain.handle('accounts:setActive', (_event, accountId: string) => {
+  const db = getDb();
+  if (!db) return;
+  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(accountId));
+});
+ipcMain.handle('accounts:reorder', (_event, orderedIds: string[]) => {
+  const db = getDb();
+  if (!db) return;
+  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify(orderedIds));
+});
+ipcMain.handle('accounts:remove', (_event, accountId: string) => {
+  const db = getDb();
+  if (!db) return;
+  db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId);
+  db.prepare('DELETE FROM sync_state WHERE account_id = ?').run(accountId);
+  const orderRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('accounts_order') as { value: string } | undefined;
+  const order: string[] = orderRow ? JSON.parse(orderRow.value) : [];
+  const next = order.filter((id) => id !== accountId);
+  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify(next));
+  const activeRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('active_account') as { value: string } | undefined;
+  const active = activeRow ? JSON.parse(activeRow.value) as string : null;
+  if (active === accountId && next.length > 0) {
+    db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(next[0]));
+  } else if (active === accountId) {
+    db.prepare('DELETE FROM kv WHERE key = ?').run('active_account');
+  }
+});
 
 ipcMain.handle('reminder:getMinutes', () => {
   const db = getDb();

@@ -139,23 +139,31 @@ body {
   display: grid;
   grid-template-columns: 160px 300px 1fr;
   min-height: 0;
+  overflow: hidden;
 }
 
 .shell-mail__sidebar {
   border-right: 1px solid var(--dawn-08);
   background: var(--surface-0);
+  min-height: 0;
   overflow-y: auto;
 }
 
 .shell-mail__list {
   border-right: 1px solid var(--dawn-08);
   background: var(--surface-0);
+  min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .shell-mail__view {
   background: var(--void);
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .shell-mail__empty {
@@ -187,6 +195,380 @@ body {
   .shell-mail__sidebar {
     display: none;
   }
+}
+
+/* ─── Mail sidebar (account-first, collapsible) ─── */
+
+.mail-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-sm) 0;
+}
+
+.mail-sidebar__toggle {
+  padding: 0 var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.mail-sidebar__toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--dawn-50);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 100ms, background 100ms;
+}
+
+.mail-sidebar__toggle-btn:hover {
+  color: var(--dawn);
+  background: var(--dawn-08);
+}
+
+.mail-sidebar__accounts {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.mail-sidebar__list {
+  list-style: none;
+}
+
+.mail-sidebar__list--icons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.account-row {
+  margin-bottom: var(--space-sm);
+}
+
+.account-row--dragging {
+  opacity: 0.6;
+}
+
+.account-row--collapsed {
+  margin-bottom: var(--space-xs);
+}
+
+.account-row__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
+  margin-bottom: 2px;
+}
+
+.account-row__drag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: var(--dawn-30);
+  cursor: grab;
+  border-radius: 2px;
+}
+
+.account-row__drag:active {
+  cursor: grabbing;
+}
+
+.account-row__drag:hover {
+  color: var(--dawn-50);
+}
+
+.account-row__avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--dawn-08);
+  color: var(--dawn-70);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+}
+
+.account-row__avatar:hover {
+  background: var(--dawn-15);
+  color: var(--dawn);
+}
+
+.account-row__avatar--active {
+  background: var(--gold-15);
+  color: var(--gold);
+}
+
+.account-row__email {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--dawn-70);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-row__labels {
+  list-style: none;
+  padding-left: var(--space-md);
+}
+
+.account-row__labels .label-nav__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.mail-sidebar__bottom {
+  padding: var(--space-sm);
+  border-top: 1px solid var(--dawn-08);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mail-sidebar__bottom-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: none;
+  color: var(--dawn-50);
+  font-size: 0.8125rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 100ms, background 100ms;
+}
+
+.mail-sidebar__bottom-btn:hover {
+  color: var(--dawn);
+  background: var(--dawn-08);
+}
+
+/* Settings overlay (placeholder for Phase 6) */
+
+.shell-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.shell-settings-panel {
+  background: var(--surface-0);
+  border: 1px solid var(--dawn-08);
+  border-radius: 8px;
+  padding: var(--space-lg);
+  max-width: 400px;
+}
+
+.shell-settings-panel__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dawn);
+  margin-bottom: var(--space-sm);
+}
+
+.shell-settings-panel__hint {
+  font-size: 0.8125rem;
+  color: var(--dawn-50);
+  margin-bottom: var(--space-md);
+}
+
+.shell-settings-panel__close {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--dawn-08);
+  border: none;
+  color: var(--dawn);
+  font-size: 0.8125rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.shell-settings-panel__close:hover {
+  background: var(--dawn-15);
+}
+
+.shell-settings-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.shell-settings-panel .settings-section {
+  margin-bottom: var(--space-xl);
+}
+
+.shell-settings-panel .settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--dawn);
+  margin-bottom: var(--space-sm);
+}
+
+.settings-section__hint {
+  font-size: 0.75rem;
+  color: var(--dawn-30);
+  margin-top: var(--space-xs);
+}
+
+.settings-section__action {
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--dawn-08);
+  border: none;
+  color: var(--dawn);
+  font-size: 0.8125rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.settings-section__action:hover:not(:disabled) {
+  background: var(--dawn-15);
+}
+
+.settings-section__action:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.settings-section__select {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-08);
+  color: var(--dawn-70);
+  font-size: 0.8125rem;
+  border-radius: 4px;
+}
+
+.settings-accounts-list {
+  list-style: none;
+}
+
+.settings-accounts-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--dawn-04);
+}
+
+.settings-accounts-item:last-child {
+  border-bottom: none;
+}
+
+.settings-accounts-item__email {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-accounts-item__badge {
+  font-size: 0.6875rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-accounts-item__btn {
+  padding: 2px var(--space-xs);
+  background: transparent;
+  border: none;
+  color: var(--dawn-50);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.settings-accounts-item__btn:hover {
+  color: var(--dawn);
+}
+
+.settings-accounts-item__btn--danger:hover {
+  color: #8B5A5A;
+}
+
+.settings-shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.settings-shortcuts-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: var(--space-md);
+  align-items: baseline;
+}
+
+.settings-shortcuts-key {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.settings-shortcuts-action {
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  margin: 0;
+}
+
+.settings-theme-toggle {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.settings-theme-btn {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--dawn-08);
+  border: none;
+  color: var(--dawn-50);
+  font-size: 0.8125rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.settings-theme-btn:hover {
+  color: var(--dawn);
+  background: var(--dawn-15);
+}
+
+.settings-theme-btn--active {
+  color: var(--gold);
+  background: var(--gold-10);
 }
 
 /* ─── Label nav (mail sidebar) ─── */
@@ -296,24 +678,69 @@ body {
   color: #8B5A5A;
 }
 
+.thread-list__load-more {
+  padding: var(--space-sm);
+  border-top: 1px solid var(--dawn-08);
+  flex-shrink: 0;
+}
+
+.thread-list__load-more-btn {
+  width: 100%;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--dawn-08);
+  border: none;
+  color: var(--dawn-70);
+  font-size: 0.8125rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.thread-list__load-more-btn:hover:not(:disabled) {
+  background: var(--dawn-15);
+  color: var(--dawn);
+}
+
+.thread-list__load-more-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 /* ─── Thread view ─── */
 
 .thread-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: var(--space-xl);
 }
 
 .thread-view__header {
-  margin-bottom: var(--space-lg);
+  flex-shrink: 0;
+  margin-bottom: var(--space-md);
+}
+
+.thread-view__header-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
 }
 
 .thread-view__subject {
   font-size: 1rem;
   font-weight: 600;
   color: var(--dawn);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-view__messages {
-  margin-bottom: var(--space-xl);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: var(--space-md);
 }
 
 .thread-view__message {
@@ -346,6 +773,46 @@ body {
   color: var(--dawn-70);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.thread-view__message-body--html {
+  white-space: normal;
+}
+
+.thread-view__message-body--html a {
+  color: var(--gold);
+}
+
+.thread-view__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.thread-view__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: var(--dawn-50);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 100ms, background 100ms;
+}
+
+.thread-view__action-btn:hover {
+  color: var(--dawn);
+  background: var(--dawn-08);
+}
+
+.thread-view__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .thread-view__error,
@@ -419,16 +886,26 @@ body {
 }
 
 .cal-view {
-  max-width: 640px;
+  max-width: 720px;
   margin: 0 auto;
   padding: var(--space-xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
 }
 
 .cal-view__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-xl);
+  flex-shrink: 0;
+}
+
+.cal-view__body {
+  background: var(--surface-0);
+  border: 1px solid var(--dawn-08);
+  border-radius: 8px;
+  padding: var(--space-lg);
 }
 
 .cal-view__title {
@@ -511,6 +988,76 @@ body {
   grid-column: 2;
   font-size: 0.6875rem;
   color: var(--dawn-30);
+}
+
+/* Calendar Invites section */
+.cal-invites {
+  background: var(--surface-0);
+  border: 1px solid var(--dawn-08);
+  border-radius: 8px;
+  padding: var(--space-lg);
+}
+
+.cal-invites__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--dawn);
+  margin-bottom: var(--space-md);
+}
+
+.cal-invites__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.cal-invite-card {
+  padding: var(--space-md);
+  background: var(--void);
+  border: 1px solid var(--dawn-08);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.cal-invite-card__snippet {
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cal-invite-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.cal-invite-card__link {
+  font-size: 0.75rem;
+  color: var(--gold);
+  text-decoration: none;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--gold-30);
+  border-radius: 4px;
+  transition: background 100ms, color 100ms;
+}
+
+.cal-invite-card__link:hover {
+  background: var(--gold-10);
+  color: var(--gold);
+}
+
+.cal-invites__empty {
+  font-size: 0.8125rem;
+  color: var(--dawn-30);
+  padding: var(--space-sm) 0;
 }
 
 /* ─── Connect view ─── */

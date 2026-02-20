@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Mail } from 'lucide-react';
+import { getActiveAccountId } from '@/features/auth/authStore';
 import {
   fetchEvents,
   getReminderMinutes,
@@ -7,15 +8,25 @@ import {
   type CalendarEvent,
 } from '../calendarClient';
 
+const GMAIL_INBOX_BASE = 'https://mail.google.com/mail/u/0/#inbox/';
+
 export function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [reminderMins, setReminderMins] = useState(15);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const [inviteThreads, setInviteThreads] = useState<{ id: string; snippet: string }[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
 
   useEffect(() => {
+    getActiveAccountId().then(setActiveAccountId);
+  }, []);
+
+  useEffect(() => {
+    if (activeAccountId === undefined) return;
     let cancelled = false;
     setLoading(true);
-    fetchEvents(14)
+    fetchEvents(activeAccountId ?? undefined, 14)
       .then((list) => {
         if (!cancelled) setEvents(list);
       })
@@ -25,7 +36,19 @@ export function CalendarView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeAccountId]);
+
+  useEffect(() => {
+    if (!activeAccountId || activeAccountId === undefined) return;
+    setInvitesLoading(true);
+    window.electronAPI?.gmail
+      ?.searchThreads(activeAccountId, 'has:invite', 20)
+      .then(({ threads }) => {
+        setInviteThreads(threads.map((t) => ({ id: t.id, snippet: t.snippet || '' })));
+      })
+      .catch(() => setInviteThreads([]))
+      .finally(() => setInvitesLoading(false));
+  }, [activeAccountId]);
 
   useEffect(() => {
     getReminderMinutes().then(setReminderMins);
@@ -102,6 +125,36 @@ export function CalendarView() {
           </div>
         )}
       </div>
+
+      <section className="cal-invites" aria-labelledby="cal-invites-title">
+        <h2 id="cal-invites-title" className="cal-invites__title">
+          <Mail size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+          Invites
+        </h2>
+        {invitesLoading ? (
+          <p className="cal-invites__empty">Loading invites…</p>
+        ) : inviteThreads.length === 0 ? (
+          <p className="cal-invites__empty">No pending invites.</p>
+        ) : (
+          <ul className="cal-invites__list">
+            {inviteThreads.map((t) => (
+              <li key={t.id} className="cal-invite-card">
+                <p className="cal-invite-card__snippet">{t.snippet || '(No preview)'}</p>
+                <div className="cal-invite-card__actions">
+                  <a
+                    href={`${GMAIL_INBOX_BASE}${t.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="cal-invite-card__link"
+                  >
+                    Open in Gmail
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { forwardRef, useState, useImperativeHandle, useRef } from 'react';
 
 interface ReplyComposerProps {
   onSend: (body: string) => Promise<void>;
   disabled?: boolean;
 }
 
-export function ReplyComposer({ onSend, disabled }: ReplyComposerProps) {
+export const ReplyComposer = forwardRef<HTMLTextAreaElement | null, ReplyComposerProps>(function ReplyComposer(
+  { onSend, disabled },
+  ref
+) {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle<HTMLTextAreaElement | null, HTMLTextAreaElement | null>(ref, () => textareaRef.current);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +30,7 @@ export function ReplyComposer({ onSend, disabled }: ReplyComposerProps) {
   return (
     <form className="reply-composer" onSubmit={handleSubmit}>
       <textarea
+        ref={textareaRef}
         className="reply-composer__input"
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -41,4 +47,4 @@ export function ReplyComposer({ onSend, disabled }: ReplyComposerProps) {
       </button>
     </form>
   );
-}
+});

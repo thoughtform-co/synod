@@ -45,13 +45,15 @@ export function startReminderEngine(): void {
   function tick(): void {
     const db = getDb();
     if (!db) return;
-    const account = getStoredJson(db, 'account') as { email?: string } | null;
-    if (!account?.email) return;
+    const active = getStoredJson(db, 'active_account') as string | null;
+    const legacy = getStoredJson(db, 'account') as { email?: string } | null;
+    const accountId = (active && typeof active === 'string') ? active : legacy?.email;
+    if (!accountId) return;
 
     const reminderMins = getReminderMinutes();
     const notified = getNotifiedIds();
 
-    listEvents(1)
+    listEvents(accountId, 1)
       .then((events) => {
         const now = Date.now();
         const windowEnd = now + reminderMins * 60 * 1000;

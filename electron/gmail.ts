@@ -10,12 +10,18 @@ function getStoredJson(db: import('better-sqlite3').Database, key: string): unkn
   return row ? JSON.parse(row.value) : null;
 }
 
-function getGmailClient() {
+function getActiveAccountId(db: import('better-sqlite3').Database): string | null {
+  const active = getStoredJson(db, 'active_account') as string | null;
+  if (active && typeof active === 'string') return active;
+  const legacy = getStoredJson(db, 'account') as { email?: string } | null;
+  return legacy?.email && typeof legacy.email === 'string' ? legacy.email : null;
+}
+
+function getGmailClient(accountId?: string) {
   const db = getDb();
   if (!db) throw new Error('Database not initialized');
 
-  const account = getStoredJson(db, 'account') as { email?: string } | null;
-  const email = account?.email;
+  const email = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
   if (!email) throw new Error('No account connected');
 
   const clientId = getStoredJson(db, 'google_client_id') as string | null;
@@ -52,8 +58,8 @@ export interface ListThreadsResult {
   nextPageToken?: string;
 }
 
-export function listThreads(labelId: string, maxResults: number, pageToken?: string): Promise<ListThreadsResult> {
-  const gmail = getGmailClient();
+export function listThreads(accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string): Promise<ListThreadsResult> {
+  const gmail = getGmailClient(accountId);
   return gmail.users.threads
     .list({
       userId: 'me',
@@ -93,8 +99,8 @@ export interface GmailMessage {
   };
 }
 
-export function getThread(threadId: string): Promise<{ id: string; messages: GmailMessage[] }> {
-  const gmail = getGmailClient();
+export function getThread(accountId: string | undefined, threadId: string): Promise<{ id: string; messages: GmailMessage[] }> {
+  const gmail = getGmailClient(accountId);
   return gmail.users.threads
     .get({
       userId: 'me',
@@ -142,8 +148,8 @@ function base64UrlEncode(str: string): string {
     .replace(/=+$/, '');
 }
 
-export function sendReply(threadId: string, rawMessage: string): Promise<{ id: string }> {
-  const gmail = getGmailClient();
+export function sendReply(accountId: string | undefined, threadId: string, rawMessage: string): Promise<{ id: string }> {
+  const gmail = getGmailClient(accountId);
   return gmail.users.messages
     .send({
       userId: 'me',
@@ -155,12 +161,12 @@ export function sendReply(threadId: string, rawMessage: string): Promise<{ id: s
     .then((res) => ({ id: res.data.id! }));
 }
 
-export function buildAndSendReply(threadId: string, bodyText: string): Promise<{ id: string }> {
-  const gmail = getGmailClient();
+export function buildAndSendReply(accountId: string | undefined, threadId: string, bodyText: string): Promise<{ id: string }> {
+  const gmail = getGmailClient(accountId);
   const db = getDb();
   if (!db) throw new Error('Database not initialized');
-  const account = getStoredJson(db, 'account') as { email?: string } | null;
-  const fromEmail = account?.email || '';
+  const email = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
+  const fromEmail = email || '';
 
   return gmail.users.threads
     .get({ userId: 'me', id: threadId, format: 'minimal' })
@@ -191,7 +197,72 @@ export function buildAndSendReply(threadId: string, bodyText: string): Promise<{
         bodyText.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'),
       ];
       const raw = base64UrlEncode(lines.join('\r\n'));
-      return sendReply(threadId, raw);
+      return sendReply(accountId, threadId, raw);
+    });
+}
+
+export function modifyLabels(
+  accountId: string | undefined,
+  threadId: string,
+  addLabelIds: string[],
+  removeLabelIds: string[]
+): Promise<void> {
+  const gmail = getGmailClient(accountId);
+  return gmail.users.threads
+    .modify({
+      userId: 'me',
+      id: threadId,
+      requestBody: { addLabelIds, removeLabelIds },
+    })
+    .then(() => undefined);
+}
+
+export function trashThread(accountId: string | undefined, threadId: string): Promise<void> {
+  const gmail = getGmailClient(accountId);
+  return gmail.users.threads.trash({ userId: 'me', id: threadId }).then(() => undefined);
+}
+
+export interface GmailLabel {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export function listLabels(accountId: string | undefined): Promise<GmailLabel[]> {
+  const gmail = getGmailClient(accountId);
+  return gmail.users.labels
+    .list({ userId: 'me' })
+    .then((res) =>
+      (res.data.labels || []).map((l) => ({
+        id: l.id!,
+        name: l.name || l.id!,
+        type: l.type || 'user',
+      }))
+    );
+}
+
+export function searchThreads(
+  accountId: string | undefined,
+  query: string,
+  maxResults: number,
+  pageToken?: string
+): Promise<ListThreadsResult> {
+  const gmail = getGmailClient(accountId);
+  return gmail.users.threads
+    .list({
+      userId: 'me',
+      q: query,
+      maxResults: Math.min(maxResults, 50),
+      pageToken: pageToken || undefined,
+    })
+    .then((res) => {
+      const threads: ThreadSummary[] = (res.data.threads || []).map((t) => ({
+        id: t.id!,
+        snippet: t.snippet || '',
+        historyId: t.historyId ? String(t.historyId) : undefined,
+        messages: t.messages?.map((m) => ({ id: m.id!, labelIds: m.labelIds ?? undefined })),
+      }));
+      return { threads, nextPageToken: res.data.nextPageToken || undefined };
     });
 }
 
