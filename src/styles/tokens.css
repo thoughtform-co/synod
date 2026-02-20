@@ -27,6 +27,8 @@
   --gold-15: rgba(202, 165, 84, 0.15);
   --gold-10: rgba(202, 165, 84, 0.1);
 
+  --alert: #ff6b35;
+
   --font-sans: 'IBM Plex Sans', sans-serif;
   --font-mono: 'PT Mono', monospace;
 
@@ -67,6 +69,8 @@
   --dawn-15: rgba(17, 15, 9, 0.15);
   --dawn-08: rgba(17, 15, 9, 0.08);
   --dawn-04: rgba(17, 15, 9, 0.04);
+
+  --alert: #ff6b35;
 
   --background: 0 0% 100%;
   --foreground: 30 10% 6%;

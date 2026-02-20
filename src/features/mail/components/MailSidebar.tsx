@@ -1,32 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Settings, Plus, ChevronLeft, ChevronRight, Inbox, Mail, Send, Megaphone, Users, Bell, AlertTriangle, GripVertical } from 'lucide-react';
-import type { AccountEntry, AccountsListResult } from '@/vite-env.d';
-import { storeGet, storeSet } from '@/lib/db/sqlite';
+  Inbox, Clock, Check, FileText, Send, Mail,
+  Megaphone, Users, Bell, AlertTriangle,
+  Settings, Plus, ChevronDown,
+} from 'lucide-react';
+import type { AccountsListResult } from '@/vite-env.d';
 import type { MailView } from '../mailRepository';
-
-const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed';
 
 export type { MailView };
 
-const LABEL_ITEMS: { id: string; name: string; icon: typeof Inbox }[] = [
-  { id: 'INBOX', name: 'Inbox', icon: Inbox },
-  { id: 'invites', name: 'Invites', icon: Mail },
-  { id: 'SENT', name: 'Sent', icon: Send },
-  { id: 'CATEGORY_PROMOTIONS', name: 'Promotions', icon: Megaphone },
-  { id: 'CATEGORY_SOCIAL', name: 'Social', icon: Users },
-  { id: 'CATEGORY_UPDATES', name: 'Updates', icon: Bell },
-  { id: 'SPAM', name: 'Spam', icon: AlertTriangle },
+interface LabelItem {
+  id: string;
+  name: string;
+  icon: typeof Inbox;
+  view: MailView;
+  dividerAfter?: boolean;
+}
+
+const LABEL_ITEMS: LabelItem[] = [
+  { id: 'INBOX', name: 'Inbox', icon: Inbox, view: { type: 'label', labelId: 'INBOX' } },
+  { id: 'snoozed', name: 'Snoozed', icon: Clock, view: { type: 'query', query: 'is:snoozed' } },
+  { id: 'done', name: 'Done', icon: Check, view: { type: 'query', query: '-in:inbox -in:spam -in:trash' }, dividerAfter: true },
+  { id: 'DRAFT', name: 'Drafts', icon: FileText, view: { type: 'label', labelId: 'DRAFT' } },
+  { id: 'SENT', name: 'Sent', icon: Send, view: { type: 'label', labelId: 'SENT' } },
+  { id: 'invites', name: 'Invites', icon: Mail, view: { type: 'query', query: 'has:invite' }, dividerAfter: true },
+  { id: 'CATEGORY_PROMOTIONS', name: 'Promotions', icon: Megaphone, view: { type: 'label', labelId: 'CATEGORY_PROMOTIONS' } },
+  { id: 'CATEGORY_SOCIAL', name: 'Social', icon: Users, view: { type: 'label', labelId: 'CATEGORY_SOCIAL' } },
+  { id: 'CATEGORY_UPDATES', name: 'Updates', icon: Bell, view: { type: 'label', labelId: 'CATEGORY_UPDATES' } },
+  { id: 'SPAM', name: 'Spam', icon: AlertTriangle, view: { type: 'label', labelId: 'SPAM' } },
 ];
 
 interface MailSidebarProps {
@@ -41,88 +42,11 @@ interface MailSidebarProps {
   refreshAccounts: () => void;
 }
 
-function AccountRowSortable({
-  account,
-  isActive,
-  isCollapsed,
-  onSelect,
-  onViewChange,
-  currentView,
-}: {
-  account: AccountEntry;
-  isActive: boolean;
-  isCollapsed: boolean;
-  onSelect: () => void;
-  onViewChange: (view: MailView) => void;
-  currentView: MailView;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id });
-  const style = transform ? { transform: CSS.Transform.toString(transform), transition } : undefined;
-  const initial = account.email.slice(0, 1).toUpperCase();
-
-  if (isCollapsed) {
-    return (
-      <li ref={setNodeRef} style={style} className="account-row account-row--collapsed">
-        <button
-          type="button"
-          className={`account-row__avatar ${isActive ? 'account-row__avatar--active' : ''}`}
-          onClick={onSelect}
-          title={account.email}
-          aria-label={account.email}
-        >
-          {initial}
-        </button>
-      </li>
-    );
-  }
-
-  return (
-    <li ref={setNodeRef} style={style} className={`account-row ${isDragging ? 'account-row--dragging' : ''}`}>
-      <div className="account-row__head">
-        <button
-          type="button"
-          className="account-row__drag"
-          aria-label="Reorder account"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical size={14} strokeWidth={1.5} />
-        </button>
-        <button
-          type="button"
-          className={`account-row__avatar ${isActive ? 'account-row__avatar--active' : ''}`}
-          onClick={onSelect}
-          title={account.email}
-        >
-          {initial}
-        </button>
-        <span className="account-row__email" title={account.email}>
-          {account.email}
-        </span>
-      </div>
-      <ul className="account-row__labels">
-        {LABEL_ITEMS.map((item) => {
-          const view: MailView = item.id === 'invites' ? { type: 'query', query: 'has:invite' } : { type: 'label', labelId: item.id };
-          const isSelected =
-            currentView.type === view.type &&
-            (view.type === 'label' ? currentView.type === 'label' && currentView.labelId === view.labelId : currentView.type === 'query' && currentView.query === view.query);
-          const Icon = item.icon;
-          return (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={`label-nav__item ${isSelected ? 'label-nav__item--active' : ''}`}
-                onClick={() => onViewChange(view)}
-              >
-                <Icon size={14} strokeWidth={1.5} />
-                <span>{item.name}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </li>
-  );
+function viewsMatch(a: MailView, b: MailView): boolean {
+  if (a.type !== b.type) return false;
+  if (a.type === 'label' && b.type === 'label') return a.labelId === b.labelId;
+  if (a.type === 'query' && b.type === 'query') return a.query === b.query;
+  return false;
 }
 
 export function MailSidebar({
@@ -130,102 +54,108 @@ export function MailSidebar({
   activeAccountId,
   currentView,
   onSetActive,
-  onReorder,
   onViewChange,
   onOpenSettings,
   onAddAccount,
-  refreshAccounts: _refreshAccounts,
 }: MailSidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const accounts = accountsResult?.accounts ?? [];
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  const activeAccount = accounts.find((a) => a.id === activeAccountId);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    storeGet<boolean>(SIDEBAR_COLLAPSED_KEY).then((v) => {
-      if (typeof v === 'boolean') setCollapsed(v);
-    });
-  }, []);
-
-
-  const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    storeSet(SIDEBAR_COLLAPSED_KEY, next);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const ids = accounts.map((a) => a.id);
-    const oldIndex = ids.indexOf(active.id as string);
-    const newIndex = ids.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const next = arrayMove(ids, oldIndex, newIndex);
-    onReorder(next);
-  };
+    if (!dropdownOpen) return;
+    const close = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [dropdownOpen]);
 
   return (
     <nav className="mail-sidebar">
-      <div className="mail-sidebar__toggle">
+      {/* Account switcher */}
+      <div className="sidebar-account-switcher" ref={dropdownRef}>
         <button
           type="button"
-          className="mail-sidebar__toggle-btn"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="sidebar-account-switcher__trigger"
+          onClick={() => setDropdownOpen((v) => !v)}
+          aria-expanded={dropdownOpen}
+          aria-haspopup="listbox"
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          <span className="sidebar-account-switcher__avatar">
+            {activeAccount?.email?.slice(0, 1).toUpperCase() ?? '?'}
+          </span>
+          <span className="sidebar-account-switcher__email">
+            {activeAccount?.email ?? 'No account'}
+          </span>
+          <ChevronDown size={14} strokeWidth={1.5} className={`sidebar-account-switcher__chevron ${dropdownOpen ? 'sidebar-account-switcher__chevron--open' : ''}`} />
         </button>
+
+        {dropdownOpen && (
+          <ul className="sidebar-account-switcher__menu" role="listbox">
+            {accounts.map((acc) => (
+              <li key={acc.id} role="option" aria-selected={acc.id === activeAccountId}>
+                <button
+                  type="button"
+                  className={`sidebar-account-switcher__option ${acc.id === activeAccountId ? 'sidebar-account-switcher__option--active' : ''}`}
+                  onClick={() => {
+                    onSetActive(acc.id);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  <span className="sidebar-account-switcher__option-avatar">
+                    {acc.email.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="sidebar-account-switcher__option-email">{acc.email}</span>
+                </button>
+              </li>
+            ))}
+            <li className="sidebar-account-switcher__divider" />
+            <li>
+              <button
+                type="button"
+                className="sidebar-account-switcher__option"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  onAddAccount();
+                }}
+              >
+                <Plus size={14} strokeWidth={1.5} />
+                <span>Add account</span>
+              </button>
+            </li>
+          </ul>
+        )}
       </div>
 
-      {!collapsed && (
-        <div className="mail-sidebar__accounts">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={accounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
-              <ul className="mail-sidebar__list">
-                {accounts.map((acc) => (
-                  <AccountRowSortable
-                    key={acc.id}
-                    account={acc}
-                    isActive={activeAccountId === acc.id}
-                    isCollapsed={false}
-                    onSelect={() => onSetActive(acc.id)}
-                    onViewChange={onViewChange}
-                    currentView={currentView}
-                  />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
-        </div>
-      )}
+      {/* Label list */}
+      <ul className="sidebar-labels">
+        {LABEL_ITEMS.map((item) => {
+          const isSelected = viewsMatch(currentView, item.view);
+          const Icon = item.icon;
+          return (
+            <li key={item.id} className={item.dividerAfter ? 'sidebar-labels__divider-after' : ''}>
+              <button
+                type="button"
+                className={`sidebar-labels__item ${isSelected ? 'sidebar-labels__item--active' : ''}`}
+                onClick={() => onViewChange(item.view)}
+              >
+                <Icon size={16} strokeWidth={1.5} />
+                <span>{item.name}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
 
-      {collapsed && (
-        <ul className="mail-sidebar__list mail-sidebar__list--icons">
-          {accounts.map((acc) => (
-            <AccountRowSortable
-              key={acc.id}
-              account={acc}
-              isActive={activeAccountId === acc.id}
-              isCollapsed
-              onSelect={() => onSetActive(acc.id)}
-              onViewChange={onViewChange}
-              currentView={currentView}
-            />
-          ))}
-        </ul>
-      )}
-
+      {/* Bottom actions */}
       <div className="mail-sidebar__bottom">
         <button type="button" className="mail-sidebar__bottom-btn" onClick={onOpenSettings} aria-label="Settings">
           <Settings size={18} strokeWidth={1.5} />
-          {!collapsed && <span>Settings</span>}
-        </button>
-        <button type="button" className="mail-sidebar__bottom-btn" onClick={onAddAccount} aria-label="Add account">
-          <Plus size={18} strokeWidth={1.5} />
-          {!collapsed && <span>Add account</span>}
+          <span>Settings</span>
         </button>
       </div>
     </nav>

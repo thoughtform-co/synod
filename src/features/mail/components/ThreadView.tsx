@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Check, Clock, ListTodo, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Clock, ListTodo, Trash2 } from 'lucide-react';
 import { fetchThread, doneThread, deleteThread, type ThreadDetail } from '../mailRepository';
 import { ReplyComposer } from './ReplyComposer';
 
@@ -25,6 +25,7 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [actionPending, setActionPending] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -34,7 +35,12 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
     setError(null);
     fetchThread(activeAccountId ?? undefined, threadId)
       .then((t) => {
-        if (!cancelled) setThread(t);
+        if (!cancelled) {
+          setThread(t);
+          if (t && t.messages.length > 0) {
+            setExpandedIds(new Set([t.messages[t.messages.length - 1].id]));
+          }
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load thread');
@@ -44,6 +50,38 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
       });
     return () => { cancelled = true; };
   }, [activeAccountId, threadId]);
+
+  const msgRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const pendingScrollRef = useRef<string | null>(null);
+
+  const toggleMessage = useCallback((msgId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+      } else {
+        next.add(msgId);
+        pendingScrollRef.current = msgId;
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const id = pendingScrollRef.current;
+    if (!id) return;
+    pendingScrollRef.current = null;
+    requestAnimationFrame(() => {
+      const el = msgRefs.current.get(id);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [expandedIds]);
+
+  const expandAll = useCallback(() => {
+    if (!thread) return;
+    setExpandedIds(new Set(thread.messages.map((m) => m.id)));
+  }, [thread]);
 
   const handleSendReply = useCallback(async (bodyText: string) => {
     if (!thread) return;
@@ -193,20 +231,52 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
         </div>
       </header>
       <div className="thread-view__messages">
-        {thread.messages.map((msg) => (
-          <div key={msg.id} className="thread-view__message">
-            <div className="thread-view__message-meta">
-              <span className="thread-view__message-from">{msg.from}</span>
-              <span className="thread-view__message-date">{msg.date}</span>
-            </div>
+        {thread.messages.length > 2 && expandedIds.size < thread.messages.length && (
+          <button
+            type="button"
+            className="thread-view__expand-all"
+            onClick={expandAll}
+          >
+            {thread.messages.length - expandedIds.size} collapsed message{thread.messages.length - expandedIds.size !== 1 ? 's' : ''}
+          </button>
+        )}
+        {thread.messages.map((msg) => {
+          const isExpanded = expandedIds.has(msg.id);
+          const snippet = (msg.bodyPlain ?? '').slice(0, 120).replace(/\n/g, ' ');
+          return (
             <div
-              className={`thread-view__message-body ${msg.bodyHtml ? 'thread-view__message-body--html' : ''}`}
-              {...(msg.bodyHtml
-                ? { dangerouslySetInnerHTML: { __html: msg.bodyHtml } }
-                : { children: msg.bodyPlain })}
-            />
-          </div>
-        ))}
+              key={msg.id}
+              ref={(el) => { if (el) msgRefs.current.set(msg.id, el); else msgRefs.current.delete(msg.id); }}
+              className={`thread-view__message ${isExpanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'}`}
+            >
+              <button
+                type="button"
+                className="thread-view__message-header"
+                onClick={() => toggleMessage(msg.id)}
+                aria-expanded={isExpanded}
+              >
+                <ChevronRight
+                  size={14}
+                  strokeWidth={1.5}
+                  className={`thread-view__message-chevron ${isExpanded ? 'thread-view__message-chevron--open' : ''}`}
+                />
+                <span className="thread-view__message-from">{msg.from}</span>
+                {!isExpanded && (
+                  <span className="thread-view__message-snippet">{snippet || '(No content)'}</span>
+                )}
+                <span className="thread-view__message-date">{msg.date}</span>
+              </button>
+              {isExpanded && (
+                <div
+                  className={`thread-view__message-body ${msg.bodyHtml ? 'thread-view__message-body--html' : ''}`}
+                  {...(msg.bodyHtml
+                    ? { dangerouslySetInnerHTML: { __html: msg.bodyHtml } }
+                    : { children: msg.bodyPlain })}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
       <ReplyComposer ref={replyComposerRef} onSend={handleSendReply} disabled={sending} />
     </div>

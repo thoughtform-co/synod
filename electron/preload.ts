@@ -34,11 +34,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   calendar: {
     listEvents: (accountId: string | undefined, daysAhead?: number) =>
       ipcRenderer.invoke('calendar:listEvents', accountId, daysAhead),
+    listEventsRange: (accountId: string | undefined, timeMin: string, timeMax: string) =>
+      ipcRenderer.invoke('calendar:listEventsRange', accountId, timeMin, timeMax),
     respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') =>
       ipcRenderer.invoke('calendar:respondToEvent', accountId, eventId, response),
   },
   reminder: {
     getMinutes: () => ipcRenderer.invoke('reminder:getMinutes'),
     setMinutes: (minutes: number) => ipcRenderer.invoke('reminder:setMinutes', minutes),
+  },
+  windowControls: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    maximize: () => ipcRenderer.invoke('window:maximize'),
+    close: () => ipcRenderer.invoke('window:close'),
   },
 });

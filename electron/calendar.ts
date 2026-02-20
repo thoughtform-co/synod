@@ -87,6 +87,43 @@ export function listEvents(accountId?: string, daysAhead: number = DEFAULT_DAYS_
     });
 }
 
+export function listEventsRange(
+  accountId: string | undefined,
+  timeMin: string,
+  timeMax: string,
+): Promise<CalendarEvent[]> {
+  const calendar = getCalendarClient(accountId);
+  return calendar.events
+    .list({
+      calendarId: 'primary',
+      timeMin,
+      timeMax,
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 250,
+    })
+    .then((res) => {
+      const events: CalendarEvent[] = [];
+      for (const event of res.data.items || []) {
+        if (!event.id || !event.summary) continue;
+        const isAllDay = !event.start?.dateTime;
+        const startStr = event.start?.dateTime || event.start?.date;
+        const endStr = event.end?.dateTime || event.end?.date;
+        if (!startStr || !endStr) continue;
+        events.push({
+          id: event.id,
+          summary: event.summary,
+          start: startStr,
+          end: endStr,
+          isAllDay,
+          location: event.location ?? undefined,
+          description: event.description ?? undefined,
+        });
+      }
+      return events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    });
+}
+
 export type RsvpResponse = 'accepted' | 'tentative' | 'declined';
 
 export function respondToEvent(

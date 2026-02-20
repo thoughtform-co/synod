@@ -44,11 +44,17 @@ interface ElectronAPI {
   };
   calendar: {
     listEvents: (accountId: string | undefined, daysAhead?: number) => Promise<CalendarEvent[]>;
+    listEventsRange: (accountId: string | undefined, timeMin: string, timeMax: string) => Promise<CalendarEvent[]>;
     respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') => Promise<void>;
   };
   reminder: {
     getMinutes: () => Promise<number>;
     setMinutes: (minutes: number) => Promise<void>;
+  };
+  windowControls: {
+    minimize: () => Promise<void>;
+    maximize: () => Promise<void>;
+    close: () => Promise<void>;
   };
 }
 

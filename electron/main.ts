@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import path from 'path';
 import { initDb, getDb } from './db';
 import { runOAuthFlow } from './oauth';
 import { listThreads, getThread, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
-import { listEvents, respondToEvent } from './calendar';
+import { listEvents, listEventsRange, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
+import { applyNotchRegion, clearNotchRegion, hwndFromBuffer } from './windowRegion';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -16,6 +17,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 640,
     minHeight: 480,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -33,11 +35,43 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => {
+    const win = mainWindow;
+    mainWindow?.show();
+    if (win && process.platform === 'win32') {
+      const hwnd = hwndFromBuffer(win.getNativeWindowHandle());
+      let applyingRegion = false;
+      let lastAppliedRegionKey = '';
+      const updateRegion = () => {
+        if (!mainWindow) return;
+        const [w, h] = mainWindow.getSize();
+        const display = screen.getDisplayMatching(mainWindow.getBounds());
+        const key = `${w}x${h}@${display.scaleFactor}`;
+        if (applyingRegion) {
+          return;
+        }
+        if (key === lastAppliedRegionKey) {
+          return;
+        }
+        applyingRegion = true;
+        try {
+          applyNotchRegion(hwnd, w, h, display.scaleFactor);
+          lastAppliedRegionKey = key;
+        } finally {
+          applyingRegion = false;
+        }
+      };
+      win.on('resize', updateRegion);
+      win.on('maximize', () => clearNotchRegion(hwnd));
+      win.on('unmaximize', updateRegion);
+      updateRegion();
+    }
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   initDb();
   createWindow();
   startReminderEngine();
@@ -101,6 +135,9 @@ ipcMain.handle('gmail:listLabels', (_event, accountId: string | undefined) => li
 
 ipcMain.handle('calendar:listEvents', (_event, accountId: string | undefined, daysAhead?: number) =>
   listEvents(accountId, daysAhead)
+);
+ipcMain.handle('calendar:listEventsRange', (_event, accountId: string | undefined, timeMin: string, timeMax: string) =>
+  listEventsRange(accountId, timeMin, timeMax)
 );
 ipcMain.handle(
   'calendar:respondToEvent',
@@ -166,4 +203,19 @@ ipcMain.handle('reminder:setMinutes', (_event, minutes: number) => {
   const db = getDb();
   if (!db) return;
   db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('reminderMinutes', JSON.stringify(minutes));
+});
+
+// Window controls (frameless)
+ipcMain.handle('window:minimize', () => {
+  mainWindow?.minimize();
+});
+
+ipcMain.handle('window:maximize', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+
+ipcMain.handle('window:close', () => {
+  mainWindow?.close();
 });
