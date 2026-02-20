@@ -242,7 +242,7 @@ export function ThreadView({ threadId, activeAccountId, onDone, onDelete }: Thre
         )}
         {thread.messages.map((msg) => {
           const isExpanded = expandedIds.has(msg.id);
-          const snippet = (msg.bodyPlain ?? '').slice(0, 120).replace(/\n/g, ' ');
+          const snippet = (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ');
           return (
             <div
               key={msg.id}

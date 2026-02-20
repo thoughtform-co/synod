@@ -73,11 +73,14 @@ export interface GmailMessage {
   threadId: string;
   labelIds: string[];
   snippet: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  date?: string;
+  bodyPlain?: string;
+  bodyHtml?: string;
   payload?: {
-    headers?: { name: string; value: string }[];
     mimeType?: string;
-    body?: { data?: string };
-    parts?: { mimeType?: string; body?: { data?: string } }[];
   };
 }
 

@@ -90,13 +90,44 @@ export interface GmailMessage {
   threadId: string;
   labelIds: string[];
   snippet: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  date?: string;
+  bodyPlain?: string;
+  bodyHtml?: string;
   payload?: {
-    headers?: { name: string; value: string }[];
     mimeType?: string;
-    filename?: string;
-    body?: { data?: string; size?: number };
-    parts?: MessagePart[];
   };
+}
+
+function decodeBase64Url(str: string): string {
+  try {
+    return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');
+  } catch {
+    return '';
+  }
+}
+
+function extractBodies(part: any): { plain: string; html: string } {
+  let plain = '';
+  let html = '';
+  const mime: string = (part?.mimeType ?? '').toLowerCase();
+
+  if (part?.body?.data) {
+    if (mime === 'text/plain') plain = decodeBase64Url(part.body.data);
+    else if (mime === 'text/html') html = decodeBase64Url(part.body.data);
+  }
+
+  if (part?.parts) {
+    for (const child of part.parts) {
+      const r = extractBodies(child);
+      if (r.plain) plain = r.plain;
+      if (r.html) html = r.html;
+    }
+  }
+
+  return { plain, html };
 }
 
 export function getThread(accountId: string | undefined, threadId: string): Promise<{ id: string; messages: GmailMessage[] }> {
@@ -109,25 +140,64 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
     })
     .then((res) => {
       const thread = res.data;
-      const messages: GmailMessage[] = (thread.messages || []).map((m) => {
+      const rawMessages = (thread.messages || []).map((m) => {
         const p = m.payload;
+        const headers = (p?.headers || []).map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
+        const { plain, html } = extractBodies(p);
         return {
           id: m.id!,
           threadId: thread.id!,
           labelIds: m.labelIds || [],
           snippet: m.snippet || '',
+          from: getHeader(headers, 'From') || undefined,
+          to: getHeader(headers, 'To') || undefined,
+          subject: getHeader(headers, 'Subject') || undefined,
+          date: getHeader(headers, 'Date') || undefined,
+          bodyPlain: plain || undefined,
+          bodyHtml: html || undefined,
           payload: p
             ? {
-                headers: (p.headers || []).map((h) => ({ name: h.name ?? '', value: h.value ?? '' })),
                 mimeType: p.mimeType ?? undefined,
-                filename: p.filename ?? undefined,
-                body: p.body ? { data: p.body.data ?? undefined, size: p.body.size ?? undefined } : undefined,
-                parts: p.parts?.map((part) => ({
-                  mimeType: part.mimeType ?? '',
-                  body: part.body ? { data: part.body.data ?? undefined, size: part.body.size ?? undefined } : undefined,
-                })),
               }
             : undefined,
+        };
+      });
+      const HTML_BUDGET = 1_500_000;
+      const PLAIN_BUDGET = 300_000;
+      const MAX_MESSAGES_WITH_BODY = 3;
+      const MAX_HTML_PER_MESSAGE = 80_000;
+      const MAX_PLAIN_PER_MESSAGE = 20_000;
+      let remainingHtml = HTML_BUDGET;
+      let remainingPlain = PLAIN_BUDGET;
+      const keepHtml = new Array<boolean>(rawMessages.length).fill(false);
+      const keepPlain = new Array<boolean>(rawMessages.length).fill(false);
+
+      // Prioritize newest messages first (thread order is oldest -> newest).
+      for (let i = rawMessages.length - 1; i >= 0; i--) {
+        const m = rawMessages[i];
+        const isRecent = i >= Math.max(0, rawMessages.length - MAX_MESSAGES_WITH_BODY);
+        if (!isRecent) continue;
+        const htmlLen = Math.min(m.bodyHtml?.length ?? 0, MAX_HTML_PER_MESSAGE);
+        const plainLen = Math.min(m.bodyPlain?.length ?? 0, MAX_PLAIN_PER_MESSAGE);
+        if (htmlLen > 0 && remainingHtml >= htmlLen) {
+          keepHtml[i] = true;
+          remainingHtml -= htmlLen;
+          // If HTML is kept, plain body is redundant for rendering.
+          continue;
+        }
+        if (plainLen > 0 && remainingPlain >= plainLen) {
+          keepPlain[i] = true;
+          remainingPlain -= plainLen;
+        }
+      }
+
+      const messages: GmailMessage[] = rawMessages.map((m, i) => {
+        const clippedHtml = m.bodyHtml ? m.bodyHtml.slice(0, MAX_HTML_PER_MESSAGE) : undefined;
+        const clippedPlain = m.bodyPlain ? m.bodyPlain.slice(0, MAX_PLAIN_PER_MESSAGE) : undefined;
+        return {
+          ...m,
+          bodyHtml: keepHtml[i] ? clippedHtml : undefined,
+          bodyPlain: keepHtml[i] ? undefined : (keepPlain[i] ? clippedPlain : undefined),
         };
       });
       return { id: thread.id!, messages };
