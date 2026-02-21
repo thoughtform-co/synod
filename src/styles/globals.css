@@ -1069,104 +1069,69 @@ body {
   padding: var(--space-xl);
 }
 
-/* ─── Reply composer ─── */
+/* ─── Reply composer (reuses thread-view__message layout) ─── */
 
-.reply-composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  flex-shrink: 0;
+.thread-view__message--reply .thread-view__message-header {
+  cursor: pointer;
 }
 
-.reply-composer--inline {
-  border-bottom: 1px solid var(--dawn-04);
-  border-left: 3px solid var(--gold);
-  padding: var(--space-sm) 0 var(--space-md) var(--space-md);
-  margin-left: 0;
-  background: var(--surface-0);
-}
-
-.reply-composer__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: var(--space-xs);
-}
-
-.reply-composer__from {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--dawn);
-}
-
-.reply-composer__label {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
+.thread-view__reply-to {
+  font-size: 0.75rem;
   color: var(--dawn-30);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.reply-composer__date {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  color: var(--dawn-30);
+.thread-view__reply-send {
   margin-left: auto;
-}
-
-.reply-composer__input {
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--surface-1);
-  border: 1px solid var(--dawn-08);
-  color: var(--dawn);
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  resize: vertical;
-  min-height: 80px;
-  transition: border-color 120ms;
-  box-sizing: border-box;
-}
-
-.reply-composer__input::placeholder {
-  color: var(--dawn-15);
-}
-
-.reply-composer__input:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 1px var(--gold-15);
-}
-
-.reply-composer__footer {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.reply-composer__send {
-  padding: var(--space-xs) var(--space-lg);
+  padding: 4px var(--space-md);
   background: transparent;
   border: 1px solid var(--gold-15);
   color: var(--gold);
-  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background 120ms, border-color 120ms;
+  flex-shrink: 0;
+  transition: background 100ms, border-color 100ms;
 }
 
-.reply-composer__send:hover:not(:disabled) {
+.thread-view__reply-send:hover:not(:disabled) {
   background: var(--gold-10);
   border-color: var(--gold);
 }
 
-.reply-composer__send:disabled {
-  opacity: 0.4;
+.thread-view__reply-send:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
+.thread-view__reply-input {
+  resize: none;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--dawn-04);
+  font-family: var(--font-sans);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.thread-view__reply-input:focus {
+  background: var(--surface-0);
+}
+
+.thread-view__reply-input::placeholder {
+  color: var(--dawn-30);
+}
+
 /* Atreides theme overrides (when .atreides is on root) */
-.atreides .reply-composer--inline {
-  border-left-color: var(--atreides-light);
+.atreides .thread-view__reply-input:focus {
+  background: var(--atreides-dim);
 }
 
 .atreides .thread-view__expand-all {

@@ -239,7 +239,13 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
         </div>
       </header>
       <div className="thread-view__messages">
-        <ReplyComposer ref={replyComposerRef} onSend={handleSendReply} disabled={sending} />
+        <ReplyComposer
+          ref={replyComposerRef}
+          onSend={handleSendReply}
+          disabled={sending}
+          fromEmail={currentUserEmail ?? undefined}
+          toLabel={thread.messages[thread.messages.length - 1]?.from}
+        />
         {thread.messages.length > 2 && expandedIds.size < thread.messages.length && (
           <button
             type="button"
