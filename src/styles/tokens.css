@@ -48,6 +48,7 @@
 
   --font-sans: 'IBM Plex Sans', sans-serif;
   --font-mono: 'PT Mono', monospace;
+  --font-display: 'PPMondWest', var(--font-mono);
 
   /* shadcn-compatible HSL (dark) */
   --background: 20 14% 4%;

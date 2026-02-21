@@ -1,4 +1,13 @@
 @import './tokens.css';
+
+@font-face {
+  font-family: 'PPMondWest';
+  src: url('/fonts/ppmondwest-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -119,7 +128,7 @@ body {
   content: '/';
   color: var(--dawn-15);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   margin-right: 8px;
 }
 
@@ -133,7 +142,7 @@ body {
   border: none;
   color: var(--dawn-50);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
