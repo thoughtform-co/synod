@@ -1,9 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import {
-  Inbox, Clock, Check, FileText, Send, Mail,
-  Megaphone, Users, Bell, AlertTriangle,
-  Settings, Plus, ChevronDown,
-} from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
+import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
+import type { ParticleNavShapeKey } from '@/components/shared/particleNavShapes';
 import type { AccountsListResult } from '@/vite-env.d';
 import type { MailView } from '../mailRepository';
 
@@ -12,22 +10,22 @@ export type { MailView };
 interface LabelItem {
   id: string;
   name: string;
-  icon: typeof Inbox;
+  shape: ParticleNavShapeKey;
   view: MailView;
   dividerAfter?: boolean;
 }
 
 const LABEL_ITEMS: LabelItem[] = [
-  { id: 'INBOX', name: 'Inbox', icon: Inbox, view: { type: 'label', labelId: 'INBOX' } },
-  { id: 'snoozed', name: 'Snoozed', icon: Clock, view: { type: 'query', query: 'is:snoozed' } },
-  { id: 'done', name: 'Done', icon: Check, view: { type: 'query', query: '-in:inbox -in:spam -in:trash' }, dividerAfter: true },
-  { id: 'DRAFT', name: 'Drafts', icon: FileText, view: { type: 'label', labelId: 'DRAFT' } },
-  { id: 'SENT', name: 'Sent', icon: Send, view: { type: 'label', labelId: 'SENT' } },
-  { id: 'invites', name: 'Invites', icon: Mail, view: { type: 'query', query: 'has:invite' }, dividerAfter: true },
-  { id: 'CATEGORY_PROMOTIONS', name: 'Promotions', icon: Megaphone, view: { type: 'label', labelId: 'CATEGORY_PROMOTIONS' } },
-  { id: 'CATEGORY_SOCIAL', name: 'Social', icon: Users, view: { type: 'label', labelId: 'CATEGORY_SOCIAL' } },
-  { id: 'CATEGORY_UPDATES', name: 'Updates', icon: Bell, view: { type: 'label', labelId: 'CATEGORY_UPDATES' } },
-  { id: 'SPAM', name: 'Spam', icon: AlertTriangle, view: { type: 'label', labelId: 'SPAM' } },
+  { id: 'INBOX', name: 'Inbox', shape: 'inbox', view: { type: 'label', labelId: 'INBOX' } },
+  { id: 'snoozed', name: 'Snoozed', shape: 'snoozed', view: { type: 'query', query: 'is:snoozed' } },
+  { id: 'done', name: 'Done', shape: 'done', view: { type: 'query', query: '-in:inbox -in:spam -in:trash' }, dividerAfter: true },
+  { id: 'DRAFT', name: 'Drafts', shape: 'drafts', view: { type: 'label', labelId: 'DRAFT' } },
+  { id: 'SENT', name: 'Sent', shape: 'sent', view: { type: 'label', labelId: 'SENT' } },
+  { id: 'invites', name: 'Invites', shape: 'invites', view: { type: 'query', query: 'has:invite' }, dividerAfter: true },
+  { id: 'CATEGORY_PROMOTIONS', name: 'Promotions', shape: 'promotions', view: { type: 'label', labelId: 'CATEGORY_PROMOTIONS' } },
+  { id: 'CATEGORY_SOCIAL', name: 'Social', shape: 'social', view: { type: 'label', labelId: 'CATEGORY_SOCIAL' } },
+  { id: 'CATEGORY_UPDATES', name: 'Updates', shape: 'updates', view: { type: 'label', labelId: 'CATEGORY_UPDATES' } },
+  { id: 'SPAM', name: 'Spam', shape: 'spam', view: { type: 'label', labelId: 'SPAM' } },
 ];
 
 interface MailSidebarProps {
@@ -135,7 +133,6 @@ export function MailSidebar({
       <ul className="sidebar-labels">
         {LABEL_ITEMS.map((item) => {
           const isSelected = viewsMatch(currentView, item.view);
-          const Icon = item.icon;
           return (
             <li key={item.id} className={item.dividerAfter ? 'sidebar-labels__divider-after' : ''}>
               <button
@@ -143,7 +140,7 @@ export function MailSidebar({
                 className={`sidebar-labels__item ${isSelected ? 'sidebar-labels__item--active' : ''} ${item.id === 'done' ? 'sidebar-labels__item--done' : ''}`}
                 onClick={() => onViewChange(item.view)}
               >
-                <Icon size={16} strokeWidth={1.5} />
+                <ParticleNavIcon shape={item.shape} size={18} active={isSelected} />
                 <span>{item.name}</span>
               </button>
             </li>
@@ -154,7 +151,7 @@ export function MailSidebar({
       {/* Bottom actions */}
       <div className="mail-sidebar__bottom">
         <button type="button" className="mail-sidebar__bottom-btn" onClick={onOpenSettings} aria-label="Settings">
-          <Settings size={18} strokeWidth={1.5} />
+          <ParticleNavIcon shape="settings" size={18} />
           <span>Settings</span>
         </button>
       </div>

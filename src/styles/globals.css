@@ -526,6 +526,21 @@ body {
   background: var(--gold-15);
 }
 
+/* Particle nav icons — breathing animation */
+@keyframes particle-breathe {
+  0%,
+  100% {
+    opacity: var(--particle-alpha, 1);
+  }
+  50% {
+    opacity: calc(var(--particle-alpha, 1) * 0.75);
+  }
+}
+
+.particle-nav-icon__pixel {
+  animation: particle-breathe 4s ease-in-out infinite;
+}
+
 /* Bottom actions */
 
 .mail-sidebar__bottom {
@@ -1267,6 +1282,10 @@ body {
 /* "Done" sidebar label — green when Atreides is active */
 .atreides .sidebar-labels__item--done .lucide {
   color: var(--atreides-accent);
+}
+
+.atreides .sidebar-labels__item--done .particle-nav-icon__pixel {
+  fill: var(--atreides-accent);
 }
 
 /* Send button gets a green accent in Atreides mode */
