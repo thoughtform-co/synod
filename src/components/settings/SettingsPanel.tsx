@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Leaf, Clock, Keyboard, Users } from 'lucide-react';
+import { Sun, Moon, Clock, Keyboard, Users } from 'lucide-react';
 import { type BaseTheme, applyTheme } from '@/app/App';
 import { storeGet, storeSet } from '@/lib/db/sqlite';
 import type { AccountsListResult } from '@/vite-env.d';
@@ -21,7 +21,6 @@ interface SettingsPanelProps {
 export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps) {
   const [accountsResult, setAccountsResult] = useState<AccountsListResult | null>(null);
   const [theme, setTheme] = useState<BaseTheme>('dark');
-  const [atreides, setAtreides] = useState(false);
   const [reminderMins, setReminderMins] = useState(15);
   const [addingAccount, setAddingAccount] = useState(false);
 
@@ -30,12 +29,8 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
   }, []);
 
   useEffect(() => {
-    Promise.all([
-      storeGet<BaseTheme>('theme'),
-      storeGet<boolean>('atreides'),
-    ]).then(([t, a]) => {
+    storeGet<BaseTheme>('theme').then((t) => {
       if (t === 'dark' || t === 'light') setTheme(t);
-      if (a === true) setAtreides(true);
     });
   }, []);
 
@@ -46,14 +41,7 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
   const handleThemeChange = (next: BaseTheme) => {
     setTheme(next);
     storeSet('theme', next);
-    applyTheme(next, atreides);
-  };
-
-  const handleAtreidesToggle = () => {
-    const next = !atreides;
-    setAtreides(next);
-    storeSet('atreides', next);
-    applyTheme(theme, next);
+    applyTheme(next);
   };
 
   const handleReminderChange = (mins: number) => {
@@ -187,29 +175,6 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
               onClick={() => handleThemeChange('light')}
             >
               Light
-            </button>
-          </div>
-        </section>
-
-        <section className="settings-section" aria-labelledby="settings-palette">
-          <h3 id="settings-palette" className="settings-section__title">
-            <Leaf size={14} strokeWidth={1.5} />
-            Atreides Palette
-          </h3>
-          <div className="settings-theme-toggle">
-            <button
-              type="button"
-              className={`settings-theme-btn ${!atreides ? 'settings-theme-btn--active' : ''}`}
-              onClick={() => { if (atreides) handleAtreidesToggle(); }}
-            >
-              Default
-            </button>
-            <button
-              type="button"
-              className={`settings-theme-btn ${atreides ? 'settings-theme-btn--active' : ''}`}
-              onClick={() => { if (!atreides) handleAtreidesToggle(); }}
-            >
-              Atreides
             </button>
           </div>
         </section>

@@ -6,10 +6,9 @@ import { storeGet } from '@/lib/db/sqlite';
 
 export type BaseTheme = 'dark' | 'light';
 
-export function applyTheme(base: BaseTheme, atreides: boolean) {
+export function applyTheme(base: BaseTheme) {
   const root = document.documentElement;
   root.classList.toggle('light', base === 'light');
-  root.classList.toggle('atreides', atreides);
 }
 
 export default function App() {
@@ -23,13 +22,9 @@ export default function App() {
 
   useEffect(() => {
     if (!mounted) return;
-    Promise.all([
-      storeGet<BaseTheme>('theme'),
-      storeGet<boolean>('atreides'),
-    ]).then(([savedTheme, savedAtreides]) => {
+    storeGet<BaseTheme>('theme').then((savedTheme) => {
       const base: BaseTheme = savedTheme === 'light' ? 'light' : 'dark';
-      const atreides = savedAtreides === true;
-      applyTheme(base, atreides);
+      applyTheme(base);
     });
   }, [mounted]);
 

@@ -53,6 +53,8 @@ export function ParticleNavIcon({
   size = 18,
   className = '',
 }: ParticleNavIconProps) {
+  /* When color/activeColor are default, use currentColor so CSS can set Latent Night (light) / Dawn (dark) */
+  const useCurrentColor = color === DAWN_RGB && activeColor === GOLD_RGB;
   const rgb = active ? activeColor : color;
   const pixels = useMemo(() => {
     const center = size / 2;
@@ -88,9 +90,13 @@ export function ParticleNavIcon({
           y={px.gy}
           width={GRID - 1}
           height={GRID - 1}
-          fill={`rgba(${rgb}, ${px.alpha})`}
+          fill={useCurrentColor ? 'currentColor' : `rgba(${rgb}, ${px.alpha})`}
           className="particle-nav-icon__pixel"
-          style={{ animationDelay: `${px.phase}s` }}
+          style={
+            useCurrentColor
+              ? { ['--particle-alpha' as string]: px.alpha, animationDelay: `${px.phase}s` }
+              : { animationDelay: `${px.phase}s` }
+          }
         />
       ))}
     </svg>

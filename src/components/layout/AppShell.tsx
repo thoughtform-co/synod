@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Mail, CalendarDays, Sun, Moon, Leaf, Minus, Square, X } from 'lucide-react';
+import { Mail, CalendarDays, Sun, Moon, Minus, Square, X } from 'lucide-react';
 import { type BaseTheme, applyTheme } from '@/app/App';
 import { MailSidebar } from '@/features/mail/components/MailSidebar';
 import { ThreadList } from '@/features/mail/components/ThreadList';
@@ -29,7 +29,6 @@ export function AppShell() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [removedThreadIds, setRemovedThreadIds] = useState<string[]>([]);
   const [theme, setTheme] = useState<BaseTheme>('dark');
-  const [atreides, setAtreides] = useState(false);
   const [accountsResult, setAccountsResult] = useState<AccountsListResult | null>(null);
   const [mailView, setMailView] = useState<MailView>(DEFAULT_MAIL_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -99,15 +98,10 @@ export function AppShell() {
   }, [refreshAccounts]);
 
   useEffect(() => {
-    Promise.all([
-      storeGet<BaseTheme>('theme'),
-      storeGet<boolean>('atreides'),
-    ]).then(([t, a]) => {
+    storeGet<BaseTheme>('theme').then((t) => {
       const base: BaseTheme = t === 'light' ? 'light' : 'dark';
-      const isAtreides = a === true;
       setTheme(base);
-      setAtreides(isAtreides);
-      applyTheme(base, isAtreides);
+      applyTheme(base);
     });
   }, []);
 
@@ -115,14 +109,7 @@ export function AppShell() {
     const next: BaseTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     storeSet('theme', next);
-    applyTheme(next, atreides);
-  };
-
-  const toggleAtreides = () => {
-    const next = !atreides;
-    setAtreides(next);
-    storeSet('atreides', next);
-    applyTheme(theme, next);
+    applyTheme(next);
   };
 
   const handleSetActive = useCallback((accountId: string) => {
@@ -180,15 +167,6 @@ export function AppShell() {
           </nav>
         </div>
         <div className="shell-bar__right">
-          <button
-            type="button"
-            className={`shell-bar__theme ${atreides ? 'shell-bar__theme--active' : ''}`}
-            onClick={toggleAtreides}
-            aria-label={atreides ? 'Disable Atreides palette' : 'Enable Atreides palette'}
-            title={atreides ? 'Atreides palette on' : 'Atreides palette off'}
-          >
-            <Leaf size={15} strokeWidth={1.5} />
-          </button>
           <button
             type="button"
             className="shell-bar__theme"

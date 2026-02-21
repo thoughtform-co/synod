@@ -13,32 +13,38 @@
   --void: #050403;
   --surface-0: #0A0908;
   --surface-1: #0F0E0C;
-  --surface-2: #141210;
+  --surface-2: #141311;
 
   --dawn: #ECE3D6;
+  --dawn-80: rgba(236, 227, 214, 0.8);
   --dawn-70: rgba(236, 227, 214, 0.7);
   --dawn-50: rgba(236, 227, 214, 0.5);
+  --dawn-40: rgba(236, 227, 214, 0.4);
   --dawn-30: rgba(236, 227, 214, 0.3);
   --dawn-15: rgba(236, 227, 214, 0.15);
   --dawn-08: rgba(236, 227, 214, 0.08);
   --dawn-04: rgba(236, 227, 214, 0.04);
 
   --gold: #CAA554;
-  --gold-dim: rgba(202, 165, 84, 0.4);
+  --gold-bright: #E0BC6A;
+  --gold-40: rgba(202, 165, 84, 0.4);
   --gold-15: rgba(202, 165, 84, 0.15);
   --gold-10: rgba(202, 165, 84, 0.1);
+  --gold-05: rgba(202, 165, 84, 0.05);
 
-  /* Extended palette (from Brand Codex) */
-  --atreides: #2A3025;
-  --atreides-light: #3D4B33;
-  --atreides-dim: rgba(42, 48, 37, 0.15);
-  --spice: #A67C52;
-  --spice-dim: rgba(166, 124, 82, 0.15);
-  --nebulae: #1B2130;
-  --nebulae-dim: rgba(27, 33, 48, 0.15);
-  --haze: #F1F3FF;
+  /* Provenance (green) — Atreides tier */
+  --atreides-mid: #3D4B33;
+  --atreides-light: #5B7A4E;
+  --atreides-glow: #7A9E6A;
+  --atreides-30: rgba(61, 75, 51, 0.3);
+  --atreides-15: rgba(61, 75, 51, 0.15);
 
   --alert: #ff6b35;
+
+  /* Motion */
+  --duration-instant: 80ms;
+  --duration-fast: 120ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --font-sans: 'IBM Plex Sans', sans-serif;
   --font-mono: 'PT Mono', monospace;
@@ -56,78 +62,66 @@
   --secondary-foreground: 32 25% 90%;
   --muted: 20 14% 15%;
   --muted-foreground: 32 25% 63%;
-  --accent: 45 60% 50%;
+  --accent: 43 52% 56%;
   --accent-foreground: 20 14% 4%;
   --destructive: 0 63% 31%;
   --destructive-foreground: 0 0% 98%;
   --border: 20 14% 15%;
   --input: 20 14% 15%;
-  --ring: 45 60% 50%;
+  --ring: 43 52% 56%;
 }
 
-/* Light mode */
+/* Light mode — warm parchment (Dawn substrate, Ink text) */
 :root.light,
 .light {
-  --void: #FFFFFF;
-  --surface-0: #F7F5F2;
-  --surface-1: #EFECE8;
-  --surface-2: #E8E5E0;
+  --void: #ECE3D6;
+  --surface-0: #E4DAC9;
+  --surface-1: #DDD2C0;
+  --surface-2: #F2EAE0;
 
   --dawn: #110F09;
-  --dawn-70: rgba(17, 15, 9, 0.7);
-  --dawn-50: rgba(17, 15, 9, 0.5);
-  --dawn-30: rgba(17, 15, 9, 0.3);
+  /* Higher Ink opacity in light mode for legibility on parchment (stays on brand) */
+  --dawn-80: rgba(17, 15, 9, 0.92);
+  --dawn-70: rgba(17, 15, 9, 0.88);
+  --dawn-50: rgba(17, 15, 9, 0.62);
+  --dawn-40: rgba(17, 15, 9, 0.5);
+  --dawn-30: rgba(17, 15, 9, 0.4);
   --dawn-15: rgba(17, 15, 9, 0.15);
   --dawn-08: rgba(17, 15, 9, 0.08);
   --dawn-04: rgba(17, 15, 9, 0.04);
 
+  --gold: #9A7A2E;
+  --gold-bright: #B8922F;
+  --gold-40: rgba(154, 122, 46, 0.4);
+  --gold-15: rgba(154, 122, 46, 0.15);
+  --gold-10: rgba(154, 122, 46, 0.1);
+  --gold-05: rgba(154, 122, 46, 0.05);
+
+  --atreides-mid: #3D4B33;
+  --atreides-light: #4A6238;
+  --atreides-glow: #5B7A4E;
+  --atreides-30: rgba(61, 75, 51, 0.3);
+  --atreides-15: rgba(61, 75, 51, 0.15);
+
   --alert: #ff6b35;
 
-  --background: 0 0% 100%;
-  --foreground: 30 10% 6%;
-  --card: 30 15% 97%;
-  --card-foreground: 30 10% 6%;
-  --popover: 30 15% 97%;
-  --popover-foreground: 30 10% 6%;
-  --primary: 45 60% 50%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 30 10% 94%;
-  --secondary-foreground: 30 10% 6%;
-  --muted: 30 10% 94%;
-  --muted-foreground: 30 10% 40%;
-  --accent: 45 60% 50%;
-  --accent-foreground: 0 0% 100%;
+  --background: 36 25% 92%;
+  --foreground: 30 15% 6%;
+  --card: 36 22% 88%;
+  --card-foreground: 30 15% 6%;
+  --popover: 36 22% 88%;
+  --popover-foreground: 30 15% 6%;
+  --primary: 43 52% 38%;
+  --primary-foreground: 36 25% 92%;
+  --secondary: 36 20% 85%;
+  --secondary-foreground: 30 15% 6%;
+  --muted: 36 20% 85%;
+  --muted-foreground: 30 15% 40%;
+  --accent: 43 52% 38%;
+  --accent-foreground: 36 25% 92%;
   --destructive: 0 63% 31%;
   --destructive-foreground: 0 0% 98%;
-  --border: 30 10% 90%;
-  --input: 30 10% 90%;
-  --ring: 45 60% 50%;
-}
-
-/*
- * Atreides overlay — composable on top of either dark or light.
- * Shifts surfaces toward green and promotes spice/nebulae accents.
- */
-:root.atreides,
-.atreides {
-  --surface-0: #0C0E0B;
-  --surface-1: #111410;
-  --surface-2: #161A14;
-
-  --atreides-accent: #4A9B6D;
-  --atreides-accent-dim: rgba(74, 155, 109, 0.12);
-  --atreides-accent-border: rgba(74, 155, 109, 0.25);
-}
-
-/* Atreides + light: green-tinted light surfaces */
-:root.light.atreides,
-.light.atreides {
-  --void: #F4F5F0;
-  --surface-0: #EAEDE6;
-  --surface-1: #DFE3D9;
-  --surface-2: #D4D9CD;
-
-  --atreides-accent: #2A6B45;
-  --atreides-accent-dim: rgba(42, 107, 69, 0.08);
-  --atreides-accent-border: rgba(42, 107, 69, 0.2);
+  --border: 36 15% 75%;
+  --input: 36 15% 75%;
+  --ring: 43 52% 38%;
 }

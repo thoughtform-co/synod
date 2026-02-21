@@ -185,16 +185,6 @@ body {
   border-color: var(--dawn-15);
 }
 
-.shell-bar__theme--active {
-  color: var(--atreides-accent, var(--atreides-light));
-  border-color: var(--atreides-accent-border, var(--atreides-light));
-}
-
-.shell-bar__theme--active:hover {
-  color: var(--atreides-accent, var(--atreides-light));
-  border-color: var(--atreides-accent, var(--atreides-light));
-}
-
 .shell-bar__controls {
   display: flex;
   align-items: stretch;
@@ -236,6 +226,11 @@ body {
 
 .light .shell-mail__view {
   background: var(--void);
+}
+
+/* Resize handles: match adjacent panels so only the border divides (no visible strip) */
+.light .shell-mail__resize-handle {
+  background: var(--surface-0);
 }
 
 /* ─── Mail layout: sidebar + list + view ─── */
@@ -541,6 +536,19 @@ body {
   animation: particle-breathe 4s ease-in-out infinite;
 }
 
+/* Unselected: Latent Night in light mode, Dawn in dark (via --dawn). Active: gold. */
+.sidebar-labels__item .particle-nav-icon {
+  color: var(--dawn);
+}
+
+.sidebar-labels__item--active .particle-nav-icon {
+  color: var(--gold);
+}
+
+.mail-sidebar__bottom-btn .particle-nav-icon {
+  color: var(--dawn);
+}
+
 /* Bottom actions */
 
 .mail-sidebar__bottom {
@@ -827,8 +835,12 @@ body {
 }
 
 .thread-list__item--selected {
-  background: var(--gold-10);
+  background: var(--gold-05);
   border-left: 2px solid var(--gold);
+}
+
+.thread-list__item--authored {
+  border-left: 2px solid var(--atreides-mid);
 }
 
 .thread-list__from {
@@ -886,7 +898,7 @@ body {
   border: none;
   color: var(--dawn-70);
   font-size: 0.8125rem;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
 }
 
@@ -1181,7 +1193,7 @@ body {
   border: none;
   color: var(--dawn-50);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 0;
   transition: color 100ms, background 100ms;
 }
 
@@ -1204,6 +1216,10 @@ body {
 
 /* ─── Reply composer (reuses thread-view__message layout) ─── */
 
+.thread-view__message--reply {
+  border-left: 3px solid var(--atreides-mid);
+}
+
 .thread-view__message--reply .thread-view__message-header {
   cursor: pointer;
 }
@@ -1222,25 +1238,30 @@ body {
   margin-left: auto;
   padding: 4px var(--space-md);
   background: transparent;
-  border: 1px solid var(--gold-15);
-  color: var(--gold);
+  border: 1px solid var(--atreides-30);
+  color: var(--atreides-light);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 100ms, border-color 100ms;
+  transition: background var(--duration-instant) var(--ease-out), border-color var(--duration-instant) var(--ease-out), color var(--duration-instant) var(--ease-out);
 }
 
 .thread-view__reply-send:hover:not(:disabled) {
-  background: var(--gold-10);
-  border-color: var(--gold);
+  background: var(--atreides-15);
+  border-color: var(--atreides-light);
+  color: var(--atreides-glow);
 }
 
 .thread-view__reply-send:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.thread-view__message--reply:hover {
+  border-left-color: var(--atreides-light);
 }
 
 .thread-view__reply-input {
@@ -1263,40 +1284,9 @@ body {
   color: var(--dawn-30);
 }
 
-/* Atreides theme: green authorship accents */
-
-/* Reply composer — left border signals "you are composing" */
-.atreides .thread-view__message--reply {
-  border-left: 2px solid var(--atreides-accent-border);
-}
-
-.atreides .thread-view__reply-input:focus {
-  background: var(--surface-1);
-}
-
-/* Messages from current user — gold sender name, consistent across themes */
-.thread-view__message--from-me .thread-view__message-from {
-  color: var(--gold);
-}
-
-/* "Done" sidebar label — green when Atreides is active */
-.atreides .sidebar-labels__item--done .lucide {
-  color: var(--atreides-accent);
-}
-
-.atreides .sidebar-labels__item--done .particle-nav-icon__pixel {
-  fill: var(--atreides-accent);
-}
-
-/* Send button gets a green accent in Atreides mode */
-.atreides .thread-view__reply-send {
-  color: var(--atreides-accent);
-  border-color: var(--atreides-accent-border);
-}
-
-.atreides .thread-view__reply-send:hover:not(:disabled) {
-  background: var(--atreides-accent-dim);
-  border-color: var(--atreides-accent);
+/* Messages from current user — green left border (provenance), sender name stays Dawn/Ink */
+.thread-view__message--from-me {
+  border-left: 3px solid var(--atreides-mid);
 }
 
 /* ─── Calendar view (full-width) ─── */
