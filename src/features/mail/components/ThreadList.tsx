@@ -95,9 +95,9 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
                   className={`thread-list__item ${selectedThreadId === t.id ? 'thread-list__item--selected' : ''}`}
                   onClick={() => onSelectThread(t.id)}
                 >
-                  <span className="thread-list__from">—</span>
-                  <span className="thread-list__subject">{t.snippet || '(No subject)'}</span>
-                  <span className="thread-list__snippet" />
+                  <span className="thread-list__from">{t.from || '—'}</span>
+                  <span className="thread-list__subject">{t.subject || '(No subject)'}</span>
+                  <span className="thread-list__snippet">{t.snippet || ''}</span>
                 </button>
               </li>
             ))}

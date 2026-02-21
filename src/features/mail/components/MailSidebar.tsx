@@ -140,7 +140,7 @@ export function MailSidebar({
             <li key={item.id} className={item.dividerAfter ? 'sidebar-labels__divider-after' : ''}>
               <button
                 type="button"
-                className={`sidebar-labels__item ${isSelected ? 'sidebar-labels__item--active' : ''}`}
+                className={`sidebar-labels__item ${isSelected ? 'sidebar-labels__item--active' : ''} ${item.id === 'done' ? 'sidebar-labels__item--done' : ''}`}
                 onClick={() => onViewChange(item.view)}
               >
                 <Icon size={16} strokeWidth={1.5} />

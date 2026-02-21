@@ -33,13 +33,13 @@ interface ElectronAPI {
     remove: (accountId: string) => Promise<void>;
   };
   gmail: {
-    listThreads: (accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string) => Promise<{ threads: { id: string; snippet: string }[]; nextPageToken?: string }>;
+    listThreads: (accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string) => Promise<{ threads: { id: string; snippet: string; subject?: string; from?: string }[]; nextPageToken?: string }>;
     getThread: (accountId: string | undefined, threadId: string) => Promise<{ id: string; messages: GmailMessage[] }>;
     sendReply: (accountId: string | undefined, threadId: string, bodyText: string) => Promise<{ id: string }>;
     getLabelIds: () => Promise<{ INBOX: string; SENT: string; DRAFT: string }>;
     modifyLabels: (accountId: string | undefined, threadId: string, addLabelIds: string[], removeLabelIds: string[]) => Promise<void>;
     trashThread: (accountId: string | undefined, threadId: string) => Promise<void>;
-    searchThreads: (accountId: string | undefined, query: string, maxResults: number, pageToken?: string) => Promise<{ threads: { id: string; snippet: string }[]; nextPageToken?: string }>;
+    searchThreads: (accountId: string | undefined, query: string, maxResults: number, pageToken?: string) => Promise<{ threads: { id: string; snippet: string; subject?: string; from?: string }[]; nextPageToken?: string }>;
     listLabels: (accountId: string | undefined) => Promise<{ id: string; name: string; type: string }[]>;
   };
   calendar: {

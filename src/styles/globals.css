@@ -186,13 +186,13 @@ body {
 }
 
 .shell-bar__theme--active {
-  color: var(--spice, var(--gold));
-  border-color: var(--spice, var(--gold));
+  color: var(--atreides-accent, var(--atreides-light));
+  border-color: var(--atreides-accent-border, var(--atreides-light));
 }
 
 .shell-bar__theme--active:hover {
-  color: var(--spice, var(--gold));
-  border-color: var(--spice, var(--gold));
+  color: var(--atreides-accent, var(--atreides-light));
+  border-color: var(--atreides-accent, var(--atreides-light));
 }
 
 .shell-bar__controls {
@@ -234,6 +234,10 @@ body {
   background: var(--surface-0);
 }
 
+.light .shell-mail__view {
+  background: var(--void);
+}
+
 /* ─── Mail layout: sidebar + list + view ─── */
 
 .shell-mail {
@@ -247,7 +251,7 @@ body {
 
 .shell-mail__sidebar {
   border-right: 1px solid var(--dawn-08);
-  background: var(--surface-0);
+  background: var(--void);
   min-height: 0;
   overflow-y: auto;
 }
@@ -280,7 +284,7 @@ body {
 
 .shell-mail__list {
   border-right: 1px solid var(--dawn-08);
-  background: var(--surface-0);
+  background: var(--void);
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -288,7 +292,7 @@ body {
 }
 
 .shell-mail__view {
-  background: var(--void);
+  background: var(--surface-0);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -817,20 +821,30 @@ body {
   font-size: 0.8125rem;
   font-weight: 500;
   margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-list__subject {
   display: block;
   font-size: 0.75rem;
+  font-weight: 500;
   color: var(--dawn-70);
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-list__snippet {
   display: block;
   font-size: 0.6875rem;
   color: var(--dawn-30);
-  margin-top: 3px;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-list__loading,
@@ -916,13 +930,13 @@ body {
   display: block;
   width: 100%;
   text-align: center;
-  padding: 6px 0;
+  padding: 8px 0;
+  margin-bottom: var(--space-sm);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   color: var(--dawn-30);
   background: none;
-  border: none;
-  border-bottom: 1px solid var(--dawn-04);
+  border: 1px solid var(--dawn-08);
   cursor: pointer;
   transition: color 120ms, background 120ms;
 }
@@ -930,10 +944,16 @@ body {
 .thread-view__expand-all:hover {
   color: var(--dawn-70);
   background: var(--dawn-04);
+  border-color: var(--dawn-15);
 }
 
 .thread-view__message {
-  border-bottom: 1px solid var(--dawn-04);
+  border: 1px solid var(--dawn-08);
+  margin-bottom: var(--space-sm);
+}
+
+.thread-view__message--expanded {
+  border-color: var(--dawn-15);
 }
 
 .thread-view__message-header {
@@ -941,7 +961,7 @@ body {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: var(--space-sm) 0;
+  padding: var(--space-sm) var(--space-md);
   background: none;
   border: none;
   cursor: pointer;
@@ -995,7 +1015,7 @@ body {
   color: var(--dawn-70);
   white-space: pre-wrap;
   word-break: break-word;
-  padding: var(--space-xs) 0 var(--space-md) 22px;
+  padding: var(--space-xs) var(--space-md) var(--space-md) calc(var(--space-md) + 22px);
   overflow-x: auto;
   overflow-y: visible;
   max-width: 100%;
@@ -1014,10 +1034,61 @@ body {
   box-sizing: border-box;
 }
 
-.thread-view__message-body--html div,
 .thread-view__message-body--html p {
+  margin: 0 0 0.75em;
   max-width: 100%;
   overflow-wrap: break-word;
+}
+
+.thread-view__message-body--html p:last-child {
+  margin-bottom: 0;
+}
+
+.thread-view__message-body--html div {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.thread-view__message-body--html br {
+  display: block;
+  content: '';
+  margin-top: 0.25em;
+}
+
+.thread-view__message-body--html h1,
+.thread-view__message-body--html h2,
+.thread-view__message-body--html h3,
+.thread-view__message-body--html h4 {
+  color: var(--dawn);
+  margin: 1em 0 0.5em;
+  font-weight: 500;
+}
+
+.thread-view__message-body--html h1 { font-size: 1.125rem; }
+.thread-view__message-body--html h2 { font-size: 1rem; }
+.thread-view__message-body--html h3 { font-size: 0.875rem; }
+
+.thread-view__message-body--html ul,
+.thread-view__message-body--html ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.thread-view__message-body--html li {
+  margin-bottom: 0.25em;
+}
+
+.thread-view__message-body--html blockquote {
+  margin: 0.75em 0;
+  padding: 0.5em 0 0.5em 1em;
+  border-left: 2px solid var(--dawn-15);
+  color: var(--dawn-50);
+}
+
+.thread-view__message-body--html hr {
+  border: none;
+  border-top: 1px solid var(--dawn-08);
+  margin: 1em 0;
 }
 
 .thread-view__message-body--html img {
@@ -1029,15 +1100,52 @@ body {
   max-width: 100%;
   overflow-x: auto;
   display: block;
+  border-collapse: collapse;
+}
+
+.thread-view__message-body--html td,
+.thread-view__message-body--html th {
+  padding: 4px 8px;
+  border: 1px solid var(--dawn-08);
 }
 
 .thread-view__message-body--html pre {
   max-width: 100%;
   overflow-x: auto;
+  background: var(--surface-1);
+  padding: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.thread-view__message-body--html code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--surface-1);
+  padding: 1px 4px;
 }
 
 .thread-view__message-body--html a {
   color: var(--gold);
+  text-decoration: none;
+}
+
+.thread-view__message-body--html a:hover {
+  text-decoration: underline;
+}
+
+/* Gmail quoted text (On ... wrote:) */
+.thread-view__message-body--html .gmail_quote {
+  margin-top: 0.75em;
+  padding-left: 1em;
+  border-left: 2px solid var(--dawn-08);
+  color: var(--dawn-50);
+}
+
+/* Email signatures tend to be smaller/muted */
+.thread-view__message-body--html .gmail_signature {
+  color: var(--dawn-50);
+  font-size: 0.75rem;
 }
 
 .thread-view__actions {
@@ -1129,32 +1237,47 @@ body {
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  padding: var(--space-sm) var(--space-md);
 }
 
 .thread-view__reply-input:focus {
-  background: var(--surface-0);
+  background: var(--surface-1);
 }
 
 .thread-view__reply-input::placeholder {
   color: var(--dawn-30);
 }
 
-/* Atreides theme overrides (when .atreides is on root) */
+/* Atreides theme: green authorship accents */
+
+/* Reply composer — left border signals "you are composing" */
+.atreides .thread-view__message--reply {
+  border-left: 2px solid var(--atreides-accent-border);
+}
+
 .atreides .thread-view__reply-input:focus {
-  background: var(--atreides-dim);
+  background: var(--surface-1);
 }
 
-.atreides .thread-view__expand-all {
-  color: var(--spice);
+/* Messages from current user — gold sender name, consistent across themes */
+.thread-view__message--from-me .thread-view__message-from {
+  color: var(--gold);
 }
 
-.atreides .thread-view__expand-all:hover {
-  color: var(--spice);
-  opacity: 0.9;
+/* "Done" sidebar label — green when Atreides is active */
+.atreides .sidebar-labels__item--done .lucide {
+  color: var(--atreides-accent);
 }
 
-.atreides .thread-view__message--from-me {
-  background: var(--atreides-dim);
+/* Send button gets a green accent in Atreides mode */
+.atreides .thread-view__reply-send {
+  color: var(--atreides-accent);
+  border-color: var(--atreides-accent-border);
+}
+
+.atreides .thread-view__reply-send:hover:not(:disabled) {
+  background: var(--atreides-accent-dim);
+  border-color: var(--atreides-accent);
 }
 
 /* ─── Calendar view (full-width) ─── */

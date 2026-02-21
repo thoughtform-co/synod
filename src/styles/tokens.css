@@ -113,10 +113,10 @@
   --surface-0: #0C0E0B;
   --surface-1: #111410;
   --surface-2: #161A14;
-  --gold: #A67C52;
-  --gold-dim: rgba(166, 124, 82, 0.4);
-  --gold-15: rgba(166, 124, 82, 0.15);
-  --gold-10: rgba(166, 124, 82, 0.1);
+
+  --atreides-accent: #4A9B6D;
+  --atreides-accent-dim: rgba(74, 155, 109, 0.12);
+  --atreides-accent-border: rgba(74, 155, 109, 0.25);
 }
 
 /* Atreides + light: green-tinted light surfaces */
@@ -126,8 +126,8 @@
   --surface-0: #EAEDE6;
   --surface-1: #DFE3D9;
   --surface-2: #D4D9CD;
-  --gold: #A67C52;
-  --gold-dim: rgba(166, 124, 82, 0.4);
-  --gold-15: rgba(166, 124, 82, 0.15);
-  --gold-10: rgba(166, 124, 82, 0.1);
+
+  --atreides-accent: #2A6B45;
+  --atreides-accent-dim: rgba(42, 107, 69, 0.08);
+  --atreides-accent-border: rgba(42, 107, 69, 0.2);
 }

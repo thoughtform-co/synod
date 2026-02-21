@@ -9,6 +9,8 @@ const inFlightThreadRequests = new Map<string, Promise<ThreadDetail | null>>();
 export interface ThreadSummary {
   id: string;
   snippet: string;
+  subject?: string;
+  from?: string;
 }
 
 export async function fetchInboxThreads(
@@ -20,7 +22,7 @@ export async function fetchInboxThreads(
   if (!gmail) return { threads: [] };
   const { threads, nextPageToken } = await gmail.listThreads(accountId, 'INBOX', maxResults, pageToken);
   return {
-    threads: threads.map((t) => ({ id: t.id, snippet: t.snippet })),
+    threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from })),
     nextPageToken,
   };
 }
@@ -37,10 +39,10 @@ export async function fetchThreadsByView(
   if (!gmail) return { threads: [] };
   if (view.type === 'query') {
     const { threads, nextPageToken } = await gmail.searchThreads(accountId, view.query, maxResults, pageToken);
-    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet })), nextPageToken };
+    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from })), nextPageToken };
   }
   const { threads, nextPageToken } = await gmail.listThreads(accountId, view.labelId, maxResults, pageToken);
-  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet })), nextPageToken };
+  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from })), nextPageToken };
 }
 
 export interface ThreadMessage {
