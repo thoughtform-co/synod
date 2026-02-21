@@ -1,4 +1,4 @@
-/* Thoughtform brand tokens — Synod subset (dark default) */
+/* Thoughtform brand tokens — Synod (dark default) */
 
 :root {
   --radius: 0;
@@ -9,6 +9,7 @@
   --space-xl: 24px;
   --space-2xl: 32px;
 
+  /* Core palette */
   --void: #050403;
   --surface-0: #0A0908;
   --surface-1: #0F0E0C;
@@ -26,6 +27,16 @@
   --gold-dim: rgba(202, 165, 84, 0.4);
   --gold-15: rgba(202, 165, 84, 0.15);
   --gold-10: rgba(202, 165, 84, 0.1);
+
+  /* Extended palette (from Brand Codex) */
+  --atreides: #2A3025;
+  --atreides-light: #3D4B33;
+  --atreides-dim: rgba(42, 48, 37, 0.15);
+  --spice: #A67C52;
+  --spice-dim: rgba(166, 124, 82, 0.15);
+  --nebulae: #1B2130;
+  --nebulae-dim: rgba(27, 33, 48, 0.15);
+  --haze: #F1F3FF;
 
   --alert: #ff6b35;
 
@@ -52,20 +63,6 @@
   --border: 20 14% 15%;
   --input: 20 14% 15%;
   --ring: 45 60% 50%;
-}
-
-/* Atreides theme (Dune-inspired: green-tinted surfaces, spice, nebulae) */
-:root.atreides,
-.atreides {
-  --surface-0: #0C0E0B;
-  --surface-1: #111410;
-  --surface-2: #161A14;
-  --atreides: #253025;
-  --atreides-light: #364B33;
-  --atreides-dim: rgba(37, 48, 37, 0.15);
-  --spice: #A67C52;
-  --spice-dim: rgba(166, 124, 82, 0.15);
-  --nebulae: #1B2130;
 }
 
 /* Light mode */
@@ -105,4 +102,32 @@
   --border: 30 10% 90%;
   --input: 30 10% 90%;
   --ring: 45 60% 50%;
+}
+
+/*
+ * Atreides overlay — composable on top of either dark or light.
+ * Shifts surfaces toward green and promotes spice/nebulae accents.
+ */
+:root.atreides,
+.atreides {
+  --surface-0: #0C0E0B;
+  --surface-1: #111410;
+  --surface-2: #161A14;
+  --gold: #A67C52;
+  --gold-dim: rgba(166, 124, 82, 0.4);
+  --gold-15: rgba(166, 124, 82, 0.15);
+  --gold-10: rgba(166, 124, 82, 0.1);
+}
+
+/* Atreides + light: green-tinted light surfaces */
+:root.light.atreides,
+.light.atreides {
+  --void: #F4F5F0;
+  --surface-0: #EAEDE6;
+  --surface-1: #DFE3D9;
+  --surface-2: #D4D9CD;
+  --gold: #A67C52;
+  --gold-dim: rgba(166, 124, 82, 0.4);
+  --gold-15: rgba(166, 124, 82, 0.15);
+  --gold-10: rgba(166, 124, 82, 0.1);
 }

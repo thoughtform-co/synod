@@ -62,7 +62,7 @@ body {
   height: 52px;
   display: flex;
   align-items: stretch;
-  background: transparent;
+  background: var(--void);
   border-bottom: 1px solid var(--dawn-08);
   flex-shrink: 0;
   -webkit-app-region: drag;
@@ -162,7 +162,7 @@ body {
   margin-left: auto;
   padding-top: 14px;
   padding-right: 0;
-  background: var(--surface-0);
+  background: var(--void);
   -webkit-app-region: no-drag;
 }
 
@@ -183,6 +183,16 @@ body {
 .shell-bar__theme:hover {
   color: var(--dawn);
   border-color: var(--dawn-15);
+}
+
+.shell-bar__theme--active {
+  color: var(--spice, var(--gold));
+  border-color: var(--spice, var(--gold));
+}
+
+.shell-bar__theme--active:hover {
+  color: var(--spice, var(--gold));
+  border-color: var(--spice, var(--gold));
 }
 
 .shell-bar__controls {

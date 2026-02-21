@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Sun, Moon, Leaf, Clock, Keyboard, Users } from 'lucide-react';
-import type { ThemeMode } from '@/app/App';
+import { type BaseTheme, applyTheme } from '@/app/App';
 import { storeGet, storeSet } from '@/lib/db/sqlite';
 import type { AccountsListResult } from '@/vite-env.d';
 import { connectGoogleAccount } from '@/features/auth/googleOAuth';
@@ -20,7 +20,8 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps) {
   const [accountsResult, setAccountsResult] = useState<AccountsListResult | null>(null);
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<BaseTheme>('dark');
+  const [atreides, setAtreides] = useState(false);
   const [reminderMins, setReminderMins] = useState(15);
   const [addingAccount, setAddingAccount] = useState(false);
 
@@ -29,8 +30,12 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
   }, []);
 
   useEffect(() => {
-    storeGet<ThemeMode>('theme').then((t) => {
-      if (t === 'dark' || t === 'light' || t === 'atreides') setTheme(t);
+    Promise.all([
+      storeGet<BaseTheme>('theme'),
+      storeGet<boolean>('atreides'),
+    ]).then(([t, a]) => {
+      if (t === 'dark' || t === 'light') setTheme(t);
+      if (a === true) setAtreides(true);
     });
   }, []);
 
@@ -38,11 +43,17 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
     window.electronAPI?.reminder?.getMinutes().then((m) => setReminderMins(m));
   }, []);
 
-  const handleThemeChange = (next: ThemeMode) => {
+  const handleThemeChange = (next: BaseTheme) => {
     setTheme(next);
     storeSet('theme', next);
-    document.documentElement.classList.toggle('light', next === 'light');
-    document.documentElement.classList.toggle('atreides', next === 'atreides');
+    applyTheme(next, atreides);
+  };
+
+  const handleAtreidesToggle = () => {
+    const next = !atreides;
+    setAtreides(next);
+    storeSet('atreides', next);
+    applyTheme(theme, next);
   };
 
   const handleReminderChange = (mins: number) => {
@@ -159,9 +170,7 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
 
         <section className="settings-section" aria-labelledby="settings-theme">
           <h3 id="settings-theme" className="settings-section__title">
-            {theme === 'dark' && <Moon size={14} strokeWidth={1.5} />}
-            {theme === 'light' && <Sun size={14} strokeWidth={1.5} />}
-            {theme === 'atreides' && <Leaf size={14} strokeWidth={1.5} />}
+            {theme === 'dark' ? <Moon size={14} strokeWidth={1.5} /> : <Sun size={14} strokeWidth={1.5} />}
             Theme
           </h3>
           <div className="settings-theme-toggle">
@@ -179,10 +188,26 @@ export function SettingsPanel({ onClose, onAccountsChange }: SettingsPanelProps)
             >
               Light
             </button>
+          </div>
+        </section>
+
+        <section className="settings-section" aria-labelledby="settings-palette">
+          <h3 id="settings-palette" className="settings-section__title">
+            <Leaf size={14} strokeWidth={1.5} />
+            Atreides Palette
+          </h3>
+          <div className="settings-theme-toggle">
             <button
               type="button"
-              className={`settings-theme-btn ${theme === 'atreides' ? 'settings-theme-btn--active' : ''}`}
-              onClick={() => handleThemeChange('atreides')}
+              className={`settings-theme-btn ${!atreides ? 'settings-theme-btn--active' : ''}`}
+              onClick={() => { if (atreides) handleAtreidesToggle(); }}
+            >
+              Default
+            </button>
+            <button
+              type="button"
+              className={`settings-theme-btn ${atreides ? 'settings-theme-btn--active' : ''}`}
+              onClick={() => { if (!atreides) handleAtreidesToggle(); }}
             >
               Atreides
             </button>
