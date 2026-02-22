@@ -110,6 +110,16 @@ function runMigrations(db: Database.Database): void {
   if (v < 2) {
     createMailCacheTables(db);
     setSchemaVersion(db, 2);
+    v = 2;
+  }
+  if (v < 3) {
+    db.exec('ALTER TABLE messages ADD COLUMN internal_date INTEGER');
+    setSchemaVersion(db, 3);
+    v = 3;
+  }
+  if (v < 4) {
+    db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT');
+    setSchemaVersion(db, 4);
   }
 }
 

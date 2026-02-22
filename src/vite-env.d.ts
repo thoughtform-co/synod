@@ -35,6 +35,7 @@ interface ElectronAPI {
   gmail: {
     listThreads: (accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string) => Promise<{ threads: { id: string; snippet: string; subject?: string; from?: string }[]; nextPageToken?: string }>;
     getThread: (accountId: string | undefined, threadId: string) => Promise<{ id: string; messages: GmailMessage[] }>;
+    getAttachment: (accountId: string | undefined, messageId: string, attachmentId: string) => Promise<{ data: string }>;
     sendReply: (accountId: string | undefined, threadId: string, bodyText: string) => Promise<{ id: string }>;
     getLabelIds: () => Promise<{ INBOX: string; SENT: string; DRAFT: string }>;
     modifyLabels: (accountId: string | undefined, threadId: string, addLabelIds: string[], removeLabelIds: string[]) => Promise<void>;
@@ -43,6 +44,7 @@ interface ElectronAPI {
     listLabels: (accountId: string | undefined) => Promise<{ id: string; name: string; type: string }[]>;
   };
   calendar: {
+    listCalendars: (accountId: string | undefined) => Promise<{ id: string; summary: string; backgroundColor?: string; selected: boolean }[]>;
     listEvents: (accountId: string | undefined, daysAhead?: number) => Promise<CalendarEvent[]>;
     listEventsRange: (accountId: string | undefined, timeMin: string, timeMax: string) => Promise<CalendarEvent[]>;
     respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') => Promise<void>;
@@ -71,6 +73,14 @@ export interface CalendarEvent {
   isAllDay: boolean;
   location?: string;
   description?: string;
+  calendarId?: string;
+}
+
+export interface GmailAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
 }
 
 export interface GmailMessage {
@@ -84,6 +94,7 @@ export interface GmailMessage {
   date?: string;
   bodyPlain?: string;
   bodyHtml?: string;
+  attachments?: GmailAttachment[];
   payload?: {
     mimeType?: string;
   };

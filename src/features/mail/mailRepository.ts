@@ -110,6 +110,7 @@ export interface ThreadMessage {
   bodyPlain: string;
   bodyHtml: string;
   snippet: string;
+  attachments?: { filename: string; mimeType: string; size: number; attachmentId: string }[];
 }
 
 export interface ThreadDetail {
@@ -138,6 +139,7 @@ export async function fetchThread(accountId: string | undefined, threadId: strin
       bodyPlain: m.bodyPlain || m.snippet,
       bodyHtml: m.bodyHtml ? sanitizeHtml(m.bodyHtml) : '',
       snippet: m.snippet,
+      attachments: m.attachments,
     }));
     const thread: ThreadDetail = { id, messages: mappedMessages };
     pruneThreadCache();

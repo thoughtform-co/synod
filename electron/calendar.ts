@@ -42,6 +42,13 @@ function getCalendarClient(accountId?: string) {
   return google.calendar({ version: 'v3', auth: oauth2Client });
 }
 
+export interface CalendarListEntry {
+  id: string;
+  summary: string;
+  backgroundColor?: string;
+  selected: boolean;
+}
+
 export interface CalendarEvent {
   id: string;
   summary: string;
@@ -50,46 +57,85 @@ export interface CalendarEvent {
   isAllDay: boolean;
   location?: string;
   description?: string;
+  calendarId?: string;
 }
 
 const DEFAULT_DAYS_AHEAD = 14;
 
-export function listEvents(accountId?: string, daysAhead: number = DEFAULT_DAYS_AHEAD): Promise<CalendarEvent[]> {
+/** List calendars the user has access to (selected in Calendar UI). */
+export function listCalendars(accountId?: string): Promise<CalendarListEntry[]> {
   return withRetry(() => {
     const calendar = getCalendarClient(accountId);
+    return calendar.calendarList
+      .list()
+      .then((res) => {
+        const entries: CalendarListEntry[] = [];
+        for (const cal of res.data.items || []) {
+          if (!cal.id) continue;
+          const selected = cal.selected !== false;
+          entries.push({
+            id: cal.id,
+            summary: cal.summary ?? cal.id,
+            backgroundColor: cal.backgroundColor ?? undefined,
+            selected,
+          });
+        }
+        return entries;
+      });
+  });
+}
+
+function parseEventsFromResponse(
+  items: import('googleapis').calendar_v3.Schema$Event[],
+  calendarId: string
+): CalendarEvent[] {
+  const events: CalendarEvent[] = [];
+  for (const event of items) {
+    if (!event.id) continue;
+    const isAllDay = !event.start?.dateTime;
+    const startStr = event.start?.dateTime || event.start?.date;
+    const endStr = event.end?.dateTime || event.end?.date;
+    if (!startStr || !endStr) continue;
+    events.push({
+      id: event.id,
+      summary: event.summary ?? '(No title)',
+      start: startStr,
+      end: endStr,
+      isAllDay,
+      location: event.location ?? undefined,
+      description: event.description ?? undefined,
+      calendarId,
+    });
+  }
+  return events;
+}
+
+export function listEvents(accountId?: string, daysAhead: number = DEFAULT_DAYS_AHEAD): Promise<CalendarEvent[]> {
+  return withRetry(async () => {
+    const calendar = getCalendarClient(accountId);
+    const calendars = await listCalendars(accountId);
+    const visibleCalendars = calendars.filter((c) => c.selected);
+    if (visibleCalendars.length === 0) visibleCalendars.push({ id: 'primary', summary: 'Primary', selected: true });
+
     const now = new Date();
     const endDate = new Date(now);
     endDate.setDate(endDate.getDate() + daysAhead);
+    const timeMin = now.toISOString();
+    const timeMax = endDate.toISOString();
 
-    return calendar.events
-      .list({
-        calendarId: 'primary',
-        timeMin: now.toISOString(),
-        timeMax: endDate.toISOString(),
+    const allEvents: CalendarEvent[] = [];
+    for (const cal of visibleCalendars) {
+      const res = await calendar.events.list({
+        calendarId: cal.id,
+        timeMin,
+        timeMax,
         singleEvents: true,
         orderBy: 'startTime',
         maxResults: 50,
-      })
-      .then((res) => {
-        const events: CalendarEvent[] = [];
-        for (const event of res.data.items || []) {
-          if (!event.id || !event.summary) continue;
-          const isAllDay = !event.start?.dateTime;
-          const startStr = event.start?.dateTime || event.start?.date;
-          const endStr = event.end?.dateTime || event.end?.date;
-          if (!startStr || !endStr) continue;
-          events.push({
-            id: event.id,
-            summary: event.summary,
-            start: startStr,
-            end: endStr,
-            isAllDay,
-            location: event.location ?? undefined,
-            description: event.description ?? undefined,
-          });
-        }
-        return events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
       });
+      allEvents.push(...parseEventsFromResponse(res.data.items || [], cal.id));
+    }
+    return allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   });
 }
 
@@ -97,38 +143,28 @@ export function listEventsRange(
   accountId: string | undefined,
   timeMin: string,
   timeMax: string,
+  calendarId?: string
 ): Promise<CalendarEvent[]> {
-  return withRetry(() => {
+  return withRetry(async () => {
     const calendar = getCalendarClient(accountId);
-    return calendar.events
-      .list({
-        calendarId: 'primary',
+    const calendars = await listCalendars(accountId);
+    const visibleCalendars = calendars.filter((c) => c.selected);
+    if (visibleCalendars.length === 0) visibleCalendars.push({ id: 'primary', summary: 'Primary', selected: true });
+
+    const idsToFetch = calendarId ? [calendarId] : visibleCalendars.map((c) => c.id);
+    const allEvents: CalendarEvent[] = [];
+    for (const cid of idsToFetch) {
+      const res = await calendar.events.list({
+        calendarId: cid,
         timeMin,
         timeMax,
         singleEvents: true,
         orderBy: 'startTime',
         maxResults: 250,
-      })
-      .then((res) => {
-        const events: CalendarEvent[] = [];
-        for (const event of res.data.items || []) {
-          if (!event.id || !event.summary) continue;
-          const isAllDay = !event.start?.dateTime;
-          const startStr = event.start?.dateTime || event.start?.date;
-          const endStr = event.end?.dateTime || event.end?.date;
-          if (!startStr || !endStr) continue;
-          events.push({
-            id: event.id,
-            summary: event.summary,
-            start: startStr,
-            end: endStr,
-            isAllDay,
-            location: event.location ?? undefined,
-            description: event.description ?? undefined,
-          });
-        }
-        return events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
       });
+      allEvents.push(...parseEventsFromResponse(res.data.items || [], cid));
+    }
+    return allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   });
 }
 
@@ -137,13 +173,14 @@ export type RsvpResponse = 'accepted' | 'tentative' | 'declined';
 export function respondToEvent(
   accountId: string | undefined,
   eventId: string,
-  response: RsvpResponse
+  response: RsvpResponse,
+  calendarId?: string
 ): Promise<void> {
   return withRetry(() => {
     const calendar = getCalendarClient(accountId);
     return calendar.events
       .patch({
-        calendarId: 'primary',
+        calendarId: calendarId ?? 'primary',
         eventId,
         requestBody: { responseStatus: response } as import('googleapis').calendar_v3.Schema$Event,
       })

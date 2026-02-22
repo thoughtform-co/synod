@@ -7,6 +7,7 @@ export interface CalendarEvent {
   location?: string;
   description?: string;
   accountId?: string;
+  calendarId?: string;
 }
 
 function getCalendarAPI() {

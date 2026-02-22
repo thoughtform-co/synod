@@ -1,10 +1,24 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Check, ChevronRight, Clock, ListTodo, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Clock, Download, ListTodo, Paperclip, Trash2 } from 'lucide-react';
 import { fetchThread, getThreadFromCache, doneThread, deleteThread, type ThreadDetail, type ThreadMessage } from '../mailRepository';
 import { useSyncStatus } from '../useSyncStatus';
 import { recordThreadCacheHit, recordThreadFetchDurationMs } from '@/lib/metrics';
 import { formatEmailDate } from '../utils';
 import { ReplyComposer } from './ReplyComposer';
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function base64UrlDecodeToBlob(base64url: string, mimeType: string): Blob {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
 
 interface ThreadViewProps {
   threadId: string;
@@ -33,16 +47,43 @@ interface ThreadMessageRowProps {
   msg: ThreadMessage;
   isExpanded: boolean;
   fromMe: boolean;
+  activeAccountId: string | null;
   onToggle: (msgId: string) => void;
   registerRef: (id: string, el: HTMLDivElement | null) => void;
 }
 
-const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, onToggle, registerRef }: ThreadMessageRowProps) {
+const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, activeAccountId, onToggle, registerRef }: ThreadMessageRowProps) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const snippet = useMemo(
     () => (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ') || '(No content)',
     [msg.bodyPlain, msg.snippet]
   );
   const formattedDate = useMemo(() => formatEmailDate(msg.date), [msg.date]);
+
+  const handleDownload = useCallback(
+    async (attachmentId: string, filename: string, mimeType: string) => {
+      const api = window.electronAPI?.gmail;
+      if (!api?.getAttachment) return;
+      setDownloadingId(attachmentId);
+      try {
+        const { data } = await api.getAttachment(activeAccountId ?? undefined, msg.id, attachmentId);
+        const blob = base64UrlDecodeToBlob(data, mimeType);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'attachment';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } finally {
+        setDownloadingId(null);
+      }
+    },
+    [activeAccountId, msg.id]
+  );
+
   return (
     <div
       ref={(el) => registerRef(msg.id, el)}
@@ -60,16 +101,44 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
           className={`thread-view__message-chevron ${isExpanded ? 'thread-view__message-chevron--open' : ''}`}
         />
         <span className="thread-view__message-from">{msg.from}</span>
+        {!isExpanded && msg.attachments && msg.attachments.length > 0 && (
+          <Paperclip size={12} className="thread-view__message-attachment-icon" aria-hidden />
+        )}
         {!isExpanded && <span className="thread-view__message-snippet">{snippet}</span>}
         <span className="thread-view__message-date">{formattedDate}</span>
       </button>
       {isExpanded && (
-        <div
-          className={`thread-view__message-body ${msg.bodyHtml ? 'thread-view__message-body--html' : ''}`}
-          {...(msg.bodyHtml
-            ? { dangerouslySetInnerHTML: { __html: msg.bodyHtml } }
-            : { children: msg.bodyPlain })}
-        />
+        <>
+          <div
+            className={`thread-view__message-body ${msg.bodyHtml ? 'thread-view__message-body--html' : ''}`}
+            {...(msg.bodyHtml
+              ? { dangerouslySetInnerHTML: { __html: msg.bodyHtml } }
+              : { children: msg.bodyPlain })}
+          />
+          {msg.attachments && msg.attachments.length > 0 && (
+            <div className="thread-view__attachments">
+              {msg.attachments.map((att) => (
+                <button
+                  key={att.attachmentId}
+                  type="button"
+                  className="thread-view__attachment-chip"
+                  onClick={() => handleDownload(att.attachmentId, att.filename, att.mimeType)}
+                  disabled={downloadingId === att.attachmentId}
+                  title={`Download ${att.filename}`}
+                >
+                  <Paperclip size={14} aria-hidden />
+                  <span className="thread-view__attachment-filename">{att.filename}</span>
+                  <span className="thread-view__attachment-size">{formatFileSize(att.size)}</span>
+                  {downloadingId === att.attachmentId ? (
+                    <span className="thread-view__attachment-loading">…</span>
+                  ) : (
+                    <Download size={14} aria-hidden />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -142,8 +211,8 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
     else msgRefs.current.delete(id);
   }, []);
 
-  const reversedMessages = useMemo(
-    () => (thread ? [...thread.messages].reverse() : []),
+  const displayedMessages = useMemo(
+    () => (thread ? thread.messages : []),
     [thread]
   );
 
@@ -341,12 +410,13 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
             {thread.messages.length - expandedIds.size} collapsed message{thread.messages.length - expandedIds.size !== 1 ? 's' : ''}
           </button>
         )}
-        {reversedMessages.map((msg) => (
+        {displayedMessages.map((msg) => (
           <ThreadMessageRow
             key={msg.id}
             msg={msg}
             isExpanded={expandedIds.has(msg.id)}
             fromMe={isFromCurrentUser(msg.from, currentUserEmail ?? null)}
+            activeAccountId={activeAccountId}
             onToggle={toggleMessage}
             registerRef={registerMsgRef}
           />

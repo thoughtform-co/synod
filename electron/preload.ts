@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('gmail:listThreads', accountId, labelId, maxResults, pageToken),
     getThread: (accountId: string | undefined, threadId: string) =>
       ipcRenderer.invoke('gmail:getThread', accountId, threadId),
+    getAttachment: (accountId: string | undefined, messageId: string, attachmentId: string) =>
+      ipcRenderer.invoke('gmail:getAttachment', accountId, messageId, attachmentId),
     sendReply: (accountId: string | undefined, threadId: string, bodyText: string) =>
       ipcRenderer.invoke('gmail:sendReply', accountId, threadId, bodyText),
     getLabelIds: () => ipcRenderer.invoke('gmail:getLabelIds'),
@@ -32,12 +34,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listLabels: (accountId: string | undefined) => ipcRenderer.invoke('gmail:listLabels', accountId),
   },
   calendar: {
+    listCalendars: (accountId: string | undefined) =>
+      ipcRenderer.invoke('calendar:listCalendars', accountId),
     listEvents: (accountId: string | undefined, daysAhead?: number) =>
       ipcRenderer.invoke('calendar:listEvents', accountId, daysAhead),
     listEventsRange: (accountId: string | undefined, timeMin: string, timeMax: string) =>
       ipcRenderer.invoke('calendar:listEventsRange', accountId, timeMin, timeMax),
-    respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') =>
-      ipcRenderer.invoke('calendar:respondToEvent', accountId, eventId, response),
+    respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined', calendarId?: string) =>
+      ipcRenderer.invoke('calendar:respondToEvent', accountId, eventId, response, calendarId),
   },
   reminder: {
     getMinutes: () => ipcRenderer.invoke('reminder:getMinutes'),

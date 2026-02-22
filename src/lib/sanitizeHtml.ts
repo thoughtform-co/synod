@@ -29,8 +29,9 @@ export function sanitizeHtml(html: string): string {
       ALLOWED_TAGS: [
         'p', 'br', 'div', 'span', 'a', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li',
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+        'img',
       ],
-      ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
+      ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'],
       ADD_ATTR: ['target', 'rel'],
       ADD_TAGS: [],
       FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],

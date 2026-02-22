@@ -189,6 +189,13 @@ export interface MessagePart {
   parts?: MessagePart[];
 }
 
+export interface GmailAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+}
+
 export interface GmailMessage {
   id: string;
   threadId: string;
@@ -198,8 +205,10 @@ export interface GmailMessage {
   to?: string;
   subject?: string;
   date?: string;
+  internalDate?: number;
   bodyPlain?: string;
   bodyHtml?: string;
+  attachments?: GmailAttachment[];
   payload?: {
     mimeType?: string;
   };
@@ -215,8 +224,30 @@ function decodeBase64Url(str: string): string {
 
 interface GmailPart {
   mimeType?: string | null;
-  body?: { data?: string } | null;
+  filename?: string | null;
+  body?: { data?: string; attachmentId?: string; size?: number } | null;
   parts?: GmailPart[] | null;
+}
+
+function extractAttachments(part: GmailPart | undefined): GmailAttachment[] {
+  const out: GmailAttachment[] = [];
+  if (!part) return out;
+  const attachmentId = part.body?.attachmentId;
+  if (attachmentId) {
+    const filename = part.filename?.trim() || 'attachment';
+    out.push({
+      filename,
+      mimeType: part.mimeType ?? 'application/octet-stream',
+      size: part.body?.size ?? 0,
+      attachmentId,
+    });
+  }
+  if (part.parts) {
+    for (const child of part.parts) {
+      out.push(...extractAttachments(child));
+    }
+  }
+  return out;
 }
 
 function extractBodies(part: GmailPart | undefined): { plain: string; html: string } {
@@ -255,6 +286,9 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
         const p = m.payload;
         const headers = (p?.headers || []).map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
         const { plain, html } = extractBodies(p as GmailPart);
+        const attachments = extractAttachments(p as GmailPart);
+        const internalDateRaw = (m as { internalDate?: string }).internalDate;
+        const internalDate = internalDateRaw != null ? parseInt(String(internalDateRaw), 10) : undefined;
         return {
           id: m.id!,
           threadId: thread.id!,
@@ -264,8 +298,10 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
           to: getHeader(headers, 'To') || undefined,
           subject: getHeader(headers, 'Subject') || undefined,
           date: getHeader(headers, 'Date') || undefined,
+          internalDate: Number.isFinite(internalDate) ? internalDate : undefined,
           bodyPlain: plain || undefined,
           bodyHtml: html || undefined,
+          attachments: attachments.length > 0 ? attachments : undefined,
           payload: p
             ? {
                 mimeType: p.mimeType ?? undefined,
@@ -318,6 +354,24 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
         messages,
       };
     });
+  });
+}
+
+/** Get attachment data (base64url-encoded) for a message attachment. */
+export function getAttachment(
+  accountId: string | undefined,
+  messageId: string,
+  attachmentId: string
+): Promise<{ data: string }> {
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.messages.attachments
+      .get({
+        userId: 'me',
+        messageId,
+        id: attachmentId,
+      })
+      .then((res) => ({ data: res.data.data ?? '' }));
   });
 }
 

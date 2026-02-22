@@ -3,10 +3,10 @@ import path from 'path';
 import { initDb, getDb, getKv, setKv, deleteKv } from './db';
 import { migrateSecretsFromPlaintext } from './secretStorage';
 import { runOAuthFlow } from './oauth';
-import { listThreads, getThread, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
+import { listThreads, getThread, getAttachment, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
 import { getThreadListFromDb, getThreadFromDb } from './mailCache';
 import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
-import { listEvents, listEventsRange, respondToEvent } from './calendar';
+import { listEvents, listEventsRange, listCalendars, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
 import { setupAutoUpdater } from './updater';
 import { applyNotchRegion, clearNotchRegion, hwndFromBuffer } from './windowRegion';
@@ -18,6 +18,7 @@ import {
   optionalAccountId,
   validateGmailListArgs,
   validateGmailGetThreadArgs,
+  validateGmailGetAttachmentArgs,
   validateGmailSendReplyArgs,
   validateGmailModifyLabelsArgs,
   validateGmailSearchArgs,
@@ -201,6 +202,10 @@ ipcMain.handle('gmail:getThread', async (_event, accountId: unknown, threadId: u
   }
   return result;
 });
+ipcMain.handle('gmail:getAttachment', async (_event, accountId: unknown, messageId: unknown, attachmentId: unknown) => {
+  if (!validateGmailGetAttachmentArgs(accountId, messageId, attachmentId)) throw new Error('Invalid gmail:getAttachment args');
+  return getAttachment(accountId as string | undefined, messageId as string, attachmentId as string);
+});
 ipcMain.handle('gmail:sendReply', (_event, accountId: unknown, threadId: unknown, bodyText: unknown) => {
   if (!validateGmailSendReplyArgs(accountId, threadId, bodyText)) throw new Error('Invalid gmail:sendReply args');
   return buildAndSendReply(accountId as string | undefined, threadId as string, bodyText as string);
@@ -234,6 +239,10 @@ ipcMain.handle('gmail:listLabels', (_event, accountId: unknown) => {
   return listLabels(accountId as string | undefined);
 });
 
+ipcMain.handle('calendar:listCalendars', (_event, accountId: unknown) => {
+  if (!optionalAccountId(accountId)) throw new Error('Invalid calendar:listCalendars args');
+  return listCalendars(accountId as string | undefined);
+});
 ipcMain.handle('calendar:listEvents', (_event, accountId: unknown, daysAhead?: unknown) => {
   if (!validateCalendarListEventsArgs(accountId, daysAhead)) throw new Error('Invalid calendar:listEvents args');
   return listEvents(accountId as string | undefined, daysAhead as number | undefined);
@@ -244,9 +253,14 @@ ipcMain.handle('calendar:listEventsRange', (_event, accountId: unknown, timeMin:
 });
 ipcMain.handle(
   'calendar:respondToEvent',
-  (_event, accountId: unknown, eventId: unknown, response: unknown) => {
-    if (!validateCalendarRespondArgs(accountId, eventId, response)) throw new Error('Invalid calendar:respondToEvent args');
-    return respondToEvent(accountId as string | undefined, eventId as string, response as 'accepted' | 'tentative' | 'declined');
+  (_event, accountId: unknown, eventId: unknown, response: unknown, calendarId?: unknown) => {
+    if (!validateCalendarRespondArgs(accountId, eventId, response, calendarId)) throw new Error('Invalid calendar:respondToEvent args');
+    return respondToEvent(
+      accountId as string | undefined,
+      eventId as string,
+      response as 'accepted' | 'tentative' | 'declined',
+      calendarId as string | undefined
+    );
   }
 );
 

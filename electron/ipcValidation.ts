@@ -84,6 +84,20 @@ export function validateGmailGetThreadArgs(accountId: unknown, threadId: unknown
   return optionalAccountId(accountId) && validateThreadId(threadId);
 }
 
+const MAX_MESSAGE_ID_LEN = 128;
+const MAX_ATTACHMENT_ID_LEN = 256;
+
+export function validateGmailGetAttachmentArgs(
+  accountId: unknown,
+  messageId: unknown,
+  attachmentId: unknown
+): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (typeof messageId !== 'string' || messageId.length === 0 || messageId.length > MAX_MESSAGE_ID_LEN) return false;
+  if (typeof attachmentId !== 'string' || attachmentId.length === 0 || attachmentId.length > MAX_ATTACHMENT_ID_LEN) return false;
+  return true;
+}
+
 export function validateGmailSendReplyArgs(accountId: unknown, threadId: unknown, bodyText: unknown): boolean {
   if (!optionalAccountId(accountId) || !validateThreadId(threadId)) return false;
   return typeof bodyText === 'string' && bodyText.length <= MAX_BODY_TEXT_LEN;
@@ -141,10 +155,12 @@ const CALENDAR_RESPONSES = new Set(['accepted', 'tentative', 'declined']);
 export function validateCalendarRespondArgs(
   accountId: unknown,
   eventId: unknown,
-  response: unknown
+  response: unknown,
+  calendarId?: unknown
 ): boolean {
   if (!optionalAccountId(accountId)) return false;
   if (typeof eventId !== 'string' || eventId.length === 0 || eventId.length > 256) return false;
+  if (calendarId !== undefined && (typeof calendarId !== 'string' || calendarId.length > 256)) return false;
   return CALENDAR_RESPONSES.has(response as string);
 }
 

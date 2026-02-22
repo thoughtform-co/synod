@@ -17,8 +17,10 @@ export interface CachedMessage {
   to?: string;
   subject?: string;
   date?: string;
+  internalDate?: number;
   bodyPlain?: string;
   bodyHtml?: string;
+  attachments?: { filename: string; mimeType: string; size: number; attachmentId: string }[];
 }
 
 /** Read thread list for a label from SQLite. Returns empty array if none. */
@@ -61,7 +63,7 @@ export function getThreadFromDb(
   if (!threadRow) return null;
   const msgRows = db
     .prepare(
-      'SELECT message_id, thread_id, from_addr, to_addr, subject, date, snippet, body_plain, body_html, label_ids FROM messages WHERE account_id = ? AND thread_id = ? ORDER BY date ASC'
+      'SELECT message_id, thread_id, from_addr, to_addr, subject, date, internal_date, snippet, body_plain, body_html, label_ids, attachments FROM messages WHERE account_id = ? AND thread_id = ? ORDER BY internal_date ASC'
     )
     .all(accountId, threadId) as {
       message_id: string;
@@ -70,16 +72,24 @@ export function getThreadFromDb(
       to_addr: string | null;
       subject: string | null;
       date: string | null;
+      internal_date: number | null;
       snippet: string | null;
       body_plain: string | null;
       body_html: string | null;
       label_ids: string | null;
+      attachments: string | null;
     }[];
   const messages: CachedMessage[] = msgRows.map((r) => {
     let labelIds: string[] = [];
     if (r.label_ids) {
       try {
         labelIds = JSON.parse(r.label_ids) as string[];
+      } catch { /* ignore */ }
+    }
+    let attachments: CachedMessage['attachments'];
+    if (r.attachments) {
+      try {
+        attachments = JSON.parse(r.attachments) as CachedMessage['attachments'];
       } catch { /* ignore */ }
     }
     return {
@@ -91,8 +101,10 @@ export function getThreadFromDb(
       to: r.to_addr ?? undefined,
       subject: r.subject ?? undefined,
       date: r.date ?? undefined,
+      internalDate: r.internal_date ?? undefined,
       bodyPlain: r.body_plain ?? undefined,
       bodyHtml: r.body_html ?? undefined,
+      attachments,
     };
   });
   return { id: threadId, messages };

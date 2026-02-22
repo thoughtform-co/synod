@@ -115,18 +115,20 @@ function persistThreadWithMessages(
       updated_at = excluded.updated_at
   `).run(accountId, threadId, snippet ?? '', subject, fromName, historyId, labelIdsJson, now);
   const insertMsg = db.prepare(`
-    INSERT INTO messages (account_id, message_id, thread_id, from_addr, to_addr, subject, date, snippet, body_plain, body_html, label_ids, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO messages (account_id, message_id, thread_id, from_addr, to_addr, subject, date, internal_date, snippet, body_plain, body_html, label_ids, attachments, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(account_id, message_id) DO UPDATE SET
       thread_id = excluded.thread_id,
       from_addr = excluded.from_addr,
       to_addr = excluded.to_addr,
       subject = excluded.subject,
       date = excluded.date,
+      internal_date = excluded.internal_date,
       snippet = excluded.snippet,
       body_plain = excluded.body_plain,
       body_html = excluded.body_html,
       label_ids = excluded.label_ids,
+      attachments = excluded.attachments,
       updated_at = excluded.updated_at
   `);
   for (const m of messages) {
@@ -138,10 +140,12 @@ function persistThreadWithMessages(
       m.to ?? null,
       m.subject ?? null,
       m.date ?? null,
+      m.internalDate ?? null,
       m.snippet ?? null,
       m.bodyPlain ?? null,
       m.bodyHtml ?? null,
       JSON.stringify(m.labelIds ?? []),
+      m.attachments && m.attachments.length > 0 ? JSON.stringify(m.attachments) : null,
       now
     );
   }
