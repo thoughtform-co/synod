@@ -153,6 +153,11 @@ function runMigrations(db: Database.Database): void {
         SELECT rowid, from_addr, subject, snippet FROM messages;
     `);
     setSchemaVersion(db, 5);
+    v = 5;
+  }
+  if (v < 6) {
+    db.exec('ALTER TABLE threads ADD COLUMN internal_date INTEGER');
+    setSchemaVersion(db, 6);
   }
 }
 

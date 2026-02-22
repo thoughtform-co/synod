@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Check, ChevronRight, Clock, Download, ListTodo, Paperclip, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Clock, Download, Forward, ListTodo, Paperclip, Reply, Trash2 } from 'lucide-react';
 import { fetchThread, getThreadFromCache, doneThread, deleteThread, type ThreadDetail, type ThreadMessage } from '../mailRepository';
 import { useSyncStatus } from '../useSyncStatus';
 import { recordThreadCacheHit, recordThreadFetchDurationMs } from '@/lib/metrics';
@@ -49,10 +49,12 @@ interface ThreadMessageRowProps {
   fromMe: boolean;
   activeAccountId: string | null;
   onToggle: (msgId: string) => void;
+  onReply: (msgId: string) => void;
+  onForward: (msgId: string) => void;
   registerRef: (id: string, el: HTMLDivElement | null) => void;
 }
 
-const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, activeAccountId, onToggle, registerRef }: ThreadMessageRowProps) {
+const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, activeAccountId, onToggle, onReply, onForward, registerRef }: ThreadMessageRowProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const snippet = useMemo(
     () => (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ') || '(No content)',
@@ -107,6 +109,28 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
         {!isExpanded && <span className="thread-view__message-snippet">{snippet}</span>}
         <span className="thread-view__message-date">{formattedDate}</span>
       </button>
+      {isExpanded && (
+        <div className="thread-view__msg-actions">
+          <button
+            type="button"
+            className="thread-view__msg-action-btn"
+            onClick={(e) => { e.stopPropagation(); onReply(msg.id); }}
+            title="Reply"
+            aria-label="Reply"
+          >
+            <Reply size={14} strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            className="thread-view__msg-action-btn"
+            onClick={(e) => { e.stopPropagation(); onForward(msg.id); }}
+            title="Forward"
+            aria-label="Forward"
+          >
+            <Forward size={14} strokeWidth={1.5} />
+          </button>
+        </div>
+      )}
       {isExpanded && (
         <>
           <div
@@ -283,7 +307,19 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
   }, [activeAccountId, thread, actionPending, onDelete]);
 
   const focusReply = useCallback(() => {
-    replyComposerRef.current?.focus();
+    const el = replyComposerRef.current;
+    if (el) {
+      el.focus();
+      el.closest?.('form')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, []);
+
+  const handleReplyToMessage = useCallback((_msgId: string) => {
+    focusReply();
+  }, [focusReply]);
+
+  const handleForwardMessage = useCallback((_msgId: string) => {
+    // Stub: forward requires new MIME/compose flow
   }, []);
 
   const handleReplyAll = useCallback(() => {
@@ -394,13 +430,6 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
         </div>
       </header>
       <div className="thread-view__messages">
-        <ReplyComposer
-          ref={replyComposerRef}
-          onSend={handleSendReply}
-          disabled={sending}
-          fromEmail={currentUserEmail ?? undefined}
-          toLabel={thread.messages[thread.messages.length - 1]?.from}
-        />
         {thread.messages.length > 2 && expandedIds.size < thread.messages.length && (
           <button
             type="button"
@@ -418,9 +447,18 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
             fromMe={isFromCurrentUser(msg.from, currentUserEmail ?? null)}
             activeAccountId={activeAccountId}
             onToggle={toggleMessage}
+            onReply={handleReplyToMessage}
+            onForward={handleForwardMessage}
             registerRef={registerMsgRef}
           />
         ))}
+        <ReplyComposer
+          ref={replyComposerRef}
+          onSend={handleSendReply}
+          disabled={sending}
+          fromEmail={currentUserEmail ?? undefined}
+          toLabel={thread.messages[thread.messages.length - 1]?.from}
+        />
       </div>
     </div>
   );

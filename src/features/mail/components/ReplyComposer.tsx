@@ -1,5 +1,4 @@
 import { forwardRef, useState, useImperativeHandle, useRef, useCallback } from 'react';
-import { ChevronRight } from 'lucide-react';
 
 interface ReplyComposerProps {
   onSend: (body: string) => Promise<void>;
@@ -47,50 +46,48 @@ export const ReplyComposer = forwardRef<HTMLTextAreaElement | null, ReplyCompose
   const hasText = body.trim().length > 0;
 
   return (
-    <form
-      className={`thread-view__message thread-view__message--reply ${expanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'}`}
-      onSubmit={handleSubmit}
-    >
-      <div
-        className="thread-view__message-header"
-        onClick={!expanded ? expand : undefined}
-        role={!expanded ? 'button' : undefined}
-        tabIndex={!expanded ? 0 : undefined}
+    <div className="thread-view__reply-divider">
+      <form
+        className={`thread-view__message thread-view__message--reply ${expanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'}`}
+        onSubmit={handleSubmit}
       >
-        <ChevronRight
-          size={14}
-          strokeWidth={1.5}
-          className={`thread-view__message-chevron ${expanded ? 'thread-view__message-chevron--open' : ''}`}
-        />
-        <span className="thread-view__message-from">{fromEmail ?? 'You'}</span>
-        {!expanded && (
-          <span className="thread-view__message-snippet">Write a reply…</span>
+        <div
+          className="thread-view__reply-header"
+          onClick={!expanded ? expand : undefined}
+          role={!expanded ? 'button' : undefined}
+          tabIndex={!expanded ? 0 : undefined}
+          onKeyDown={!expanded ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expand(); } } : undefined}
+        >
+          <span className="thread-view__message-from">{fromEmail ?? 'You'}</span>
+          {!expanded && (
+            <span className="thread-view__reply-placeholder">Write a reply…</span>
+          )}
+          {expanded && toLabel && (
+            <span className="thread-view__reply-to">To: {toLabel}</span>
+          )}
+          {expanded && (
+            <button
+              type="submit"
+              className="thread-view__reply-send"
+              disabled={!hasText || disabled || sending}
+            >
+              {sending ? 'Sending…' : 'Send'}
+            </button>
+          )}
+        </div>
+        {expanded && (
+          <textarea
+            ref={textareaRef}
+            className="thread-view__message-body thread-view__reply-input"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Write a reply…"
+            rows={5}
+            disabled={disabled}
+          />
         )}
-        {expanded && toLabel && (
-          <span className="thread-view__reply-to">To: {toLabel}</span>
-        )}
-        {expanded && hasText && (
-          <button
-            type="submit"
-            className="thread-view__reply-send"
-            disabled={!hasText || disabled || sending}
-          >
-            {sending ? 'Sending…' : 'Send'}
-          </button>
-        )}
-      </div>
-      {expanded && (
-        <textarea
-          ref={textareaRef}
-          className="thread-view__message-body thread-view__reply-input"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Write a reply…"
-          rows={5}
-          disabled={disabled}
-        />
-      )}
-    </form>
+      </form>
+    </div>
   );
 });

@@ -63,6 +63,7 @@ export interface ThreadSummary {
   snippet: string;
   subject?: string;
   from?: string;
+  internalDate?: number;
 }
 
 export async function fetchInboxThreads(
@@ -74,7 +75,7 @@ export async function fetchInboxThreads(
   if (!gmail) return { threads: [] };
   const { threads, nextPageToken } = await gmail.listThreads(accountId, 'INBOX', maxResults, pageToken);
   return {
-    threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from })),
+    threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, internalDate: t.internalDate })),
     nextPageToken,
   };
 }
@@ -95,10 +96,10 @@ export async function fetchThreadsByView(
   if (!gmail) return { threads: [] };
   if (view.type === 'query') {
     const { threads, nextPageToken } = await gmail.searchThreads(accountId, view.query, maxResults, pageToken);
-    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from })), nextPageToken };
+    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, internalDate: t.internalDate })), nextPageToken };
   }
   const { threads, nextPageToken } = await gmail.listThreads(accountId, view.labelId, maxResults, pageToken);
-  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from })), nextPageToken };
+  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, internalDate: t.internalDate })), nextPageToken };
 }
 
 export interface ThreadMessage {

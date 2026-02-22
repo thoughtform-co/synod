@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
+import type { LocalSearchResult } from '@/vite-env';
 import { fetchThreadsByView, type ThreadSummary, type MailView } from '../mailRepository';
+import { formatThreadListDate } from '../utils';
 import { useSyncStatus } from '../useSyncStatus';
 
 const VIEW_TITLES: Record<string, string> = {
@@ -25,11 +27,13 @@ interface ThreadListProps {
   onSelectThread: (id: string | null) => void;
   /** Thread IDs just mutated (done/delete); omit from list so they disappear immediately. */
   removedThreadIds?: string[];
+  /** When set, show these filtered results instead of the normal thread list. */
+  searchResults?: LocalSearchResult[];
 }
 
 const PAGE_SIZE = 30;
 
-export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread, removedThreadIds = [] }: ThreadListProps) {
+export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread, removedThreadIds = [], searchResults = [] }: ThreadListProps) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -93,39 +97,49 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
     );
   }
 
+  const isSearchActive = searchResults.length > 0;
+  const items = isSearchActive
+    ? searchResults.map((r) => ({ threadId: r.threadId, from: r.from, subject: r.subject, snippet: r.snippet, internalDate: r.internalDate }))
+    : visibleThreads.map((t) => ({ threadId: t.id, from: t.from, subject: t.subject, snippet: t.snippet, internalDate: t.internalDate }));
+
   return (
     <div className="thread-list">
-      <header className="thread-list__header">
-        <h2 className="thread-list__title">{viewTitle(mailView)}</h2>
-        <span
-          className={`thread-list__sync-icon ${syncStatus === 'syncing' ? 'thread-list__sync-icon--spinning' : ''}`}
-          title={syncStatus === 'syncing' ? 'Syncing…' : 'Synced'}
-          aria-live="polite"
-          aria-label={syncStatus === 'syncing' ? 'Syncing' : 'Synced'}
-        >
-          <ParticleNavIcon shape="sync" size={14} active={syncStatus === 'syncing'} />
-        </span>
-      </header>
-      {loading ? (
+      {!isSearchActive && (
+        <header className="thread-list__header">
+          <h2 className="thread-list__title">{viewTitle(mailView)}</h2>
+          <span
+            className={`thread-list__sync-icon ${syncStatus === 'syncing' ? 'thread-list__sync-icon--spinning' : ''}`}
+            title={syncStatus === 'syncing' ? 'Syncing…' : 'Synced'}
+            aria-live="polite"
+            aria-label={syncStatus === 'syncing' ? 'Syncing' : 'Synced'}
+          >
+            <ParticleNavIcon shape="sync" size={14} active={syncStatus === 'syncing'} />
+          </span>
+        </header>
+      )}
+      {loading && !isSearchActive ? (
         <div className="thread-list__loading">Loading…</div>
       ) : (
         <>
           <ul className="thread-list__items">
-            {visibleThreads.map((t) => (
-              <li key={t.id}>
+            {items.map((item) => (
+              <li key={item.threadId}>
                 <button
                   type="button"
-                  className={`thread-list__item ${selectedThreadId === t.id ? 'thread-list__item--selected' : ''}`}
-                  onClick={() => onSelectThread(t.id)}
+                  className={`thread-list__item ${selectedThreadId === item.threadId ? 'thread-list__item--selected' : ''}`}
+                  onClick={() => onSelectThread(item.threadId)}
                 >
-                  <span className="thread-list__from">{t.from || '—'}</span>
-                  <span className="thread-list__subject">{t.subject || '(No subject)'}</span>
-                  <span className="thread-list__snippet">{t.snippet || ''}</span>
+                  <div className="thread-list__row thread-list__row--meta">
+                    <span className="thread-list__from">{item.from || '—'}</span>
+                    <span className="thread-list__date">{formatThreadListDate(item.internalDate)}</span>
+                  </div>
+                  <span className="thread-list__subject">{item.subject || '(No subject)'}</span>
+                  <span className="thread-list__snippet">{item.snippet || ''}</span>
                 </button>
               </li>
             ))}
           </ul>
-          {nextPageToken && (
+          {!isSearchActive && nextPageToken && (
             <div className="thread-list__load-more">
               <button
                 type="button"

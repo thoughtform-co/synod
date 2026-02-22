@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import type { SearchResult, LocalSearchResult } from '@/vite-env';
-import { formatEmailDate } from '../utils';
 
 type SearchMode = 'keyword' | 'semantic' | 'hybrid';
 const MODE_LABELS: Record<SearchMode, string> = { keyword: 'Fast', semantic: 'AI', hybrid: 'Hybrid' };
@@ -13,6 +12,7 @@ interface MailSearchProps {
   activeAccountId: string | null;
   accountIds: string[];
   onSelectThread: (threadId: string) => void;
+  onLocalResults: (results: LocalSearchResult[]) => void;
 }
 
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
@@ -25,17 +25,14 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () =
   }, [ref, handler]);
 }
 
-export function MailSearch({ activeAccountId, accountIds, onSelectThread }: MailSearchProps) {
+export function MailSearch({ activeAccountId, accountIds, onSelectThread, onLocalResults }: MailSearchProps) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('keyword');
   const [category, setCategory] = useState<string>('');
-  const [localResults, setLocalResults] = useState<LocalSearchResult[]>([]);
-  const [cloudResults, setCloudResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [cloudConfigured, setCloudConfigured] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
-  const [showCloud, setShowCloud] = useState(false);
 
   const modeRef = useRef<HTMLDivElement>(null);
   const catRef = useRef<HTMLDivElement>(null);
@@ -52,18 +49,21 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread }: Mail
 
   const runLocalSearch = useCallback((q: string) => {
     if (!q.trim() || !activeAccountId) {
-      setLocalResults([]);
+      onLocalResults([]);
       return;
     }
-    api?.local?.(activeAccountId, q, 20).then(setLocalResults).catch(() => setLocalResults([]));
-  }, [api, activeAccountId]);
+    api?.local?.(activeAccountId, q, 20).then(onLocalResults).catch(() => onLocalResults([]));
+  }, [api, activeAccountId, onLocalResults]);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
-    setShowCloud(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) {
+      onLocalResults([]);
+      return;
+    }
     debounceRef.current = setTimeout(() => runLocalSearch(value), 150);
-  }, [runLocalSearch]);
+  }, [runLocalSearch, onLocalResults]);
 
   useEffect(() => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -72,8 +72,6 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread }: Mail
   const runCloudSearch = useCallback(async () => {
     if (!api || !query.trim() || !cloudConfigured) return;
     setLoading(true);
-    setCloudResults([]);
-    setShowCloud(true);
     try {
       const ids = accountIds.length > 0 ? accountIds : (activeAccountId ? [activeAccountId] : []);
       const cat = category || undefined;
@@ -81,16 +79,20 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread }: Mail
       if (mode === 'keyword') list = await api.keyword(ids, query, 50, cat);
       else if (mode === 'semantic') list = await api.semantic(ids, query, 50, cat);
       else list = await api.hybrid(ids, query, 50, cat);
-      setCloudResults(list);
+      const mapped: LocalSearchResult[] = list.map((r) => ({
+        threadId: r.threadId,
+        subject: r.subject,
+        from: r.from,
+        snippet: r.snippet,
+        internalDate: r.internalDate,
+      }));
+      onLocalResults(mapped);
     } catch {
-      setCloudResults([]);
+      onLocalResults([]);
     } finally {
       setLoading(false);
     }
-  }, [api, query, mode, category, accountIds, activeAccountId, cloudConfigured]);
-
-  const hasLocalResults = localResults.length > 0 && !showCloud;
-  const hasCloudResults = cloudResults.length > 0 && showCloud;
+  }, [api, query, mode, category, accountIds, activeAccountId, cloudConfigured, onLocalResults]);
 
   return (
     <div className="mail-search">
@@ -105,7 +107,7 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread }: Mail
           onChange={(e) => handleQueryChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') runCloudSearch();
-            if (e.key === 'Escape') { setQuery(''); setLocalResults([]); setCloudResults([]); setShowCloud(false); }
+            if (e.key === 'Escape') { setQuery(''); onLocalResults([]); }
           }}
           aria-label="Search mail"
         />
@@ -177,50 +179,6 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread }: Mail
           </div>
         )}
       </div>
-
-      {hasLocalResults && (
-        <ul className="mail-search__results" role="list">
-          {localResults.map((r) => (
-            <li key={r.threadId}>
-              <button
-                type="button"
-                className="mail-search__result"
-                onClick={() => { onSelectThread(r.threadId); setQuery(''); setLocalResults([]); }}
-              >
-                <span className="mail-search__result-from">{r.from}</span>
-                <span className="mail-search__result-subject">{r.subject}</span>
-                <span className="mail-search__result-snippet">{r.snippet}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {hasCloudResults && (
-        <ul className="mail-search__results" role="list">
-          {cloudResults.map((r) => (
-            <li key={r.chunkId}>
-              <button
-                type="button"
-                className="mail-search__result"
-                onClick={() => { onSelectThread(r.threadId); setQuery(''); setCloudResults([]); setShowCloud(false); }}
-              >
-                <span className="mail-search__result-from">{r.from}</span>
-                <span className="mail-search__result-subject">{r.subject}</span>
-                <span className="mail-search__result-snippet">{r.snippet}</span>
-                <span className="mail-search__result-meta">
-                  {formatEmailDate(new Date(r.internalDate).toISOString())}
-                  {r.explanation && (
-                    <span className="mail-search__result-why" title={r.explanation}>
-                      — {r.explanation}
-                    </span>
-                  )}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

@@ -977,68 +977,6 @@ body {
   color: var(--gold);
 }
 
-/* Results overlay */
-
-.mail-search__results {
-  list-style: none;
-  max-height: 240px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 0;
-  margin-top: 4px;
-  background: var(--surface-1);
-  border: 1px solid var(--dawn-08);
-}
-
-.mail-search__result {
-  display: block;
-  width: 100%;
-  padding: var(--space-xs) var(--space-sm);
-  text-align: left;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--dawn-04);
-  color: var(--dawn);
-  cursor: pointer;
-  font-size: 0.8125rem;
-}
-
-.mail-search__result:hover {
-  background: var(--dawn-08);
-}
-
-.mail-search__result-from {
-  display: block;
-  font-weight: 600;
-  color: var(--dawn-70);
-  font-size: 0.75rem;
-}
-
-.mail-search__result-subject {
-  display: block;
-  color: var(--dawn);
-}
-
-.mail-search__result-snippet {
-  display: block;
-  color: var(--dawn-50);
-  font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mail-search__result-meta {
-  display: block;
-  font-size: 0.6875rem;
-  color: var(--dawn-40);
-  font-family: var(--font-mono);
-}
-
-.mail-search__result-why {
-  font-style: italic;
-}
-
 .thread-list {
   display: flex;
   flex-direction: column;
@@ -1118,14 +1056,33 @@ body {
   border-left: 2px solid var(--atreides-mid);
 }
 
+.thread-list__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.thread-list__row--meta {
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
 .thread-list__from {
-  display: block;
+  flex-shrink: 1;
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 500;
-  margin-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.thread-list__date {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  color: var(--dawn-50);
 }
 
 .thread-list__subject {
@@ -1250,6 +1207,7 @@ body {
 }
 
 .thread-view__message {
+  position: relative;
   border: 1px solid var(--dawn-08);
   margin-bottom: var(--space-sm);
 }
@@ -1309,6 +1267,36 @@ body {
   color: var(--dawn-30);
   flex-shrink: 0;
   margin-left: auto;
+}
+
+/* Per-message Reply/Forward actions (top-right when expanded) */
+.thread-view__msg-actions {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 1;
+}
+
+.thread-view__msg-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--dawn-50);
+  cursor: pointer;
+  transition: color 100ms, background 100ms;
+}
+
+.thread-view__msg-action-btn:hover {
+  color: var(--dawn);
+  background: var(--dawn-08);
 }
 
 .thread-view__message-body {
@@ -1545,14 +1533,44 @@ body {
   padding: var(--space-xl);
 }
 
-/* ─── Reply composer (reuses thread-view__message layout) ─── */
+/* ─── Reply composer (inline at bottom, Atreides green divider) ─── */
 
-.thread-view__message--reply {
-  border-left: 3px solid var(--atreides-mid);
+.thread-view__reply-divider {
+  border-top: 2px solid var(--atreides-light);
+  padding-top: var(--space-md);
+  margin-top: var(--space-sm);
 }
 
-.thread-view__message--reply .thread-view__message-header {
+.thread-view__message--reply {
+  border: 1px solid var(--dawn-08);
+  margin-bottom: 0;
+}
+
+.thread-view__reply-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: none;
+  border: none;
   cursor: pointer;
+  text-align: left;
+  transition: background 100ms;
+}
+
+.thread-view__reply-header:hover {
+  background: var(--dawn-04);
+}
+
+.thread-view__reply-placeholder {
+  font-size: 0.75rem;
+  color: var(--dawn-30);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-view__reply-to {
@@ -1589,10 +1607,6 @@ body {
 .thread-view__reply-send:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-.thread-view__message--reply:hover {
-  border-left-color: var(--atreides-light);
 }
 
 .thread-view__reply-input {

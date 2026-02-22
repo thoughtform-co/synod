@@ -52,6 +52,7 @@ export interface ThreadSummary {
   subject?: string;
   from?: string;
   historyId?: string;
+  internalDate?: number;
   messages?: { id: string; labelIds?: string[] }[];
 }
 
@@ -68,8 +69,8 @@ function parseFromName(raw: string | undefined): string | undefined {
   return raw.trim();
 }
 
-async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds: string[]): Promise<Map<string, { subject?: string; from?: string; snippet?: string }>> {
-  const map = new Map<string, { subject?: string; from?: string; snippet?: string }>();
+async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds: string[]): Promise<Map<string, { subject?: string; from?: string; snippet?: string; internalDate?: number }>> {
+  const map = new Map<string, { subject?: string; from?: string; snippet?: string; internalDate?: number }>();
   if (threadIds.length === 0) return map;
   try {
     const results = await Promise.allSettled(
@@ -87,16 +88,22 @@ async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds
       if (r.status !== 'fulfilled') continue;
       const data = r.value.data;
       if (!data.id) continue;
-      const msgs = data.messages || [];
+      const msgs = (data.messages || []) as { internalDate?: string }[];
+      let internalDate: number | undefined;
+      if (msgs.length > 0) {
+        const dates = msgs.map((m) => (m.internalDate != null ? parseInt(String(m.internalDate), 10) : NaN)).filter(Number.isFinite);
+        if (dates.length > 0) internalDate = Math.max(...dates);
+      }
       const firstMsg = msgs[0];
-      const rawH = firstMsg?.payload?.headers || [];
-      const headers = rawH.map((h) => ({ name: (h as { name?: string | null; value?: string | null }).name ?? '', value: (h as { name?: string | null; value?: string | null }).value ?? '' }));
+      const rawH = (firstMsg as { payload?: { headers?: { name?: string; value?: string }[] } })?.payload?.headers || [];
+      const headers = rawH.map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
       const subj = getHeader(headers, 'Subject');
       const from = getHeader(headers, 'From');
       map.set(data.id, {
         subject: subj || undefined,
         from: parseFromName(from || undefined),
         snippet: data.snippet || undefined,
+        internalDate,
       });
     }
   } catch (e) {
@@ -176,6 +183,7 @@ export async function listThreads(accountId: string | undefined, labelId: string
         subject: m?.subject,
         from: m?.from,
         historyId: t.historyId ? String(t.historyId) : undefined,
+        internalDate: m?.internalDate,
       };
     });
     return { threads, nextPageToken: res.data.nextPageToken || undefined };
@@ -514,6 +522,7 @@ export async function searchThreads(
         subject: m?.subject,
         from: m?.from,
         historyId: t.historyId ? String(t.historyId) : undefined,
+        internalDate: m?.internalDate,
       };
     });
     return { threads, nextPageToken: res.data.nextPageToken || undefined };

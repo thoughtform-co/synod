@@ -56,14 +56,15 @@ export function persistThreads(accountId: string, threads: ThreadSummary[], labe
   if (!db) return;
   const now = Date.now();
   const insertThread = db.prepare(`
-    INSERT INTO threads (account_id, thread_id, snippet, subject, from_name, history_id, label_ids, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO threads (account_id, thread_id, snippet, subject, from_name, history_id, label_ids, internal_date, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(account_id, thread_id) DO UPDATE SET
       snippet = excluded.snippet,
       subject = excluded.subject,
       from_name = excluded.from_name,
       history_id = excluded.history_id,
       label_ids = excluded.label_ids,
+      internal_date = excluded.internal_date,
       updated_at = excluded.updated_at
   `);
   const insertLabel = db.prepare(`
@@ -79,6 +80,7 @@ export function persistThreads(accountId: string, threads: ThreadSummary[], labe
       t.from ?? null,
       t.historyId ?? null,
       labelIdsJson,
+      t.internalDate ?? null,
       now
     );
     insertLabel.run(accountId, t.id, labelId);
@@ -104,17 +106,22 @@ function persistThreadWithMessages(
     (m.labelIds ?? []).forEach((id) => allLabelIds.add(id));
   }
   const labelIdsJson = JSON.stringify([...allLabelIds]);
+  const maxInternalDate = messages.reduce(
+    (max, m) => (m.internalDate != null && m.internalDate > max ? m.internalDate : max),
+    0
+  );
   db.prepare(`
-    INSERT INTO threads (account_id, thread_id, snippet, subject, from_name, history_id, label_ids, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO threads (account_id, thread_id, snippet, subject, from_name, history_id, label_ids, internal_date, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(account_id, thread_id) DO UPDATE SET
       snippet = excluded.snippet,
       subject = excluded.subject,
       from_name = excluded.from_name,
       history_id = COALESCE(excluded.history_id, threads.history_id),
       label_ids = excluded.label_ids,
+      internal_date = COALESCE(excluded.internal_date, threads.internal_date),
       updated_at = excluded.updated_at
-  `).run(accountId, threadId, snippet ?? '', subject, fromName, historyId, labelIdsJson, now);
+  `).run(accountId, threadId, snippet ?? '', subject, fromName, historyId, labelIdsJson, maxInternalDate || null, now);
   const insertMsg = db.prepare(`
     INSERT INTO messages (account_id, message_id, thread_id, from_addr, to_addr, subject, date, internal_date, snippet, body_plain, body_html, label_ids, attachments, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

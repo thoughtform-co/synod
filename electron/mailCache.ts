@@ -6,6 +6,7 @@ export interface CachedThreadSummary {
   subject?: string;
   from?: string;
   historyId?: string;
+  internalDate?: number;
 }
 
 export interface CachedMessage {
@@ -33,20 +34,21 @@ export function getThreadListFromDb(
   if (!db) return [];
   const rows = db
     .prepare(
-      `SELECT t.thread_id, t.snippet, t.subject, t.from_name, t.history_id
+      `SELECT t.thread_id, t.snippet, t.subject, t.from_name, t.history_id, t.internal_date
        FROM threads t
        INNER JOIN thread_labels tl ON t.account_id = tl.account_id AND t.thread_id = tl.thread_id
        WHERE t.account_id = ? AND tl.label_id = ?
        ORDER BY t.updated_at DESC
        LIMIT ?`
     )
-    .all(accountId, labelId, maxResults) as { thread_id: string; snippet: string; subject: string | null; from_name: string | null; history_id: string | null }[];
+    .all(accountId, labelId, maxResults) as { thread_id: string; snippet: string; subject: string | null; from_name: string | null; history_id: string | null; internal_date: number | null }[];
   return rows.map((r) => ({
     id: r.thread_id,
     snippet: r.snippet ?? '',
     subject: r.subject ?? undefined,
     from: r.from_name ?? undefined,
     historyId: r.history_id ?? undefined,
+    internalDate: r.internal_date ?? undefined,
   }));
 }
 

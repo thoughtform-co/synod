@@ -7,7 +7,7 @@ import { ThreadList } from '@/features/mail/components/ThreadList';
 import { ThreadView } from '@/features/mail/components/ThreadView';
 import { CalendarView } from '@/features/calendar/components/CalendarView';
 import { storeGet, storeSet } from '@/lib/db/sqlite';
-import type { AccountsListResult } from '@/vite-env.d';
+import type { AccountsListResult, LocalSearchResult } from '@/vite-env.d';
 import type { MailView } from '@/features/mail/mailRepository';
 import { connectGoogleAccount } from '@/features/auth/googleOAuth';
 import { getGoogleClientId, getGoogleClientSecret } from '@/features/auth/authStore';
@@ -35,6 +35,7 @@ export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR);
   const [listWidth, setListWidth] = useState(DEFAULT_LIST);
+  const [searchResults, setSearchResults] = useState<LocalSearchResult[]>([]);
 
   const mailViewKey = mailView.type === 'label' ? mailView.labelId : mailView.query;
   useEffect(() => {
@@ -246,6 +247,7 @@ export function AppShell() {
               activeAccountId={activeAccountId}
               accountIds={accountsResult?.accountsOrder ?? accountsResult?.accounts?.map((a) => a.id) ?? []}
               onSelectThread={setSelectedThreadId}
+              onLocalResults={setSearchResults}
             />
             <ThreadList
               activeAccountId={activeAccountId}
@@ -253,6 +255,7 @@ export function AppShell() {
               selectedThreadId={selectedThreadId}
               onSelectThread={setSelectedThreadId}
               removedThreadIds={removedThreadIds}
+              searchResults={searchResults}
             />
           </section>
           <div
