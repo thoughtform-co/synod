@@ -3,6 +3,8 @@ import { URL } from 'url';
 import { shell } from 'electron';
 import { google } from 'googleapis';
 import { getDb } from './db';
+import { setSecret } from './secretStorage';
+import { parseStoreGet } from './ipcValidation';
 
 const REDIRECT_PORT = 3333;
 const REDIRECT_PATH = '/oauth2callback';
@@ -35,6 +37,12 @@ export function runOAuthFlow(clientId: string, clientSecret: string): Promise<OA
     });
 
     const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+      const remote = req.socket?.remoteAddress;
+      if (remote !== '127.0.0.1' && remote !== '::1' && remote !== '::ffff:127.0.0.1') {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
       const url = req.url ? new URL(req.url, `http://localhost:${REDIRECT_PORT}`) : null;
       if (!url || url.pathname !== REDIRECT_PATH) {
         res.writeHead(404);
@@ -100,18 +108,15 @@ export function runOAuthFlow(clientId: string, clientSecret: string): Promise<OA
             'google_client_id',
             JSON.stringify(clientId)
           );
-          db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(
-            'google_client_secret',
-            JSON.stringify(clientSecret)
-          );
+          setSecret('google_client_secret', clientSecret);
           const orderRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('accounts_order') as { value: string } | undefined;
-          const order: string[] = orderRow ? JSON.parse(orderRow.value) : [];
+          const order: string[] = (orderRow ? (parseStoreGet(orderRow) as string[]) : null) ?? [];
           if (!order.includes(email)) {
             order.push(email);
             db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify(order));
           }
           const activeRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('active_account') as { value: string } | undefined;
-          if (!activeRow) {
+          if (!(activeRow && parseStoreGet(activeRow))) {
             db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(email));
           }
         }
@@ -135,7 +140,7 @@ export function runOAuthFlow(clientId: string, clientSecret: string): Promise<OA
       }
     });
 
-    server.listen(REDIRECT_PORT, () => {
+    server.listen(REDIRECT_PORT, '127.0.0.1', () => {
       shell.openExternal(authUrl);
     });
 

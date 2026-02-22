@@ -1,11 +1,31 @@
-import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, screen, shell } from 'electron';
 import path from 'path';
-import { initDb, getDb } from './db';
+import { initDb, getDb, getKv, setKv, deleteKv } from './db';
+import { migrateSecretsFromPlaintext } from './secretStorage';
 import { runOAuthFlow } from './oauth';
 import { listThreads, getThread, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
 import { listEvents, listEventsRange, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
+import { setupAutoUpdater } from './updater';
 import { applyNotchRegion, clearNotchRegion, hwndFromBuffer } from './windowRegion';
+import {
+  parseStoreGet,
+  validateStoreKey,
+  validateStoreSet,
+  validateOAuthStart,
+  optionalAccountId,
+  validateGmailListArgs,
+  validateGmailGetThreadArgs,
+  validateGmailSendReplyArgs,
+  validateGmailModifyLabelsArgs,
+  validateGmailSearchArgs,
+  validateCalendarListEventsArgs,
+  validateCalendarListEventsRangeArgs,
+  validateCalendarRespondArgs,
+  validateAccountId,
+  validateAccountsReorder,
+  validateReminderMinutes,
+} from './ipcValidation';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -22,7 +42,7 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
     show: false,
     backgroundColor: '#050403',
@@ -34,6 +54,36 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  const allowedOrigins = new Set([
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'file://',
+  ]);
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'https:' || u.protocol === 'http:') {
+        shell.openExternal(url);
+      }
+    } catch {
+      /* ignore */
+    }
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    try {
+      const u = new URL(url);
+      const origin = u.origin;
+      if (allowedOrigins.has(origin)) return;
+      if (u.protocol === 'https:' || u.protocol === 'http:') {
+        event.preventDefault();
+        shell.openExternal(url);
+      }
+    } catch {
+      event.preventDefault();
+    }
+  });
 
   mainWindow.once('ready-to-show', () => {
     const win = mainWindow;
@@ -73,8 +123,10 @@ function createWindow(): void {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   initDb();
+  migrateSecretsFromPlaintext();
   createWindow();
   startReminderEngine();
+  setupAutoUpdater();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -87,72 +139,90 @@ app.on('window-all-closed', () => {
 });
 
 // IPC: persist key-value (e.g. theme, account config)
-ipcMain.handle('store:get', (_event, key: string) => {
-  const db = getDb();
-  if (!db) return null;
-  const row = db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined;
-  return row ? JSON.parse(row.value) : null;
+ipcMain.handle('store:get', (_event, key: unknown) => {
+  if (!validateStoreKey(key)) return null;
+  const raw = getKv(key as string);
+  return raw !== null ? parseStoreGet({ value: raw }) : null;
 });
 
-ipcMain.handle('store:set', (_event, key: string, value: unknown) => {
-  const db = getDb();
-  if (!db) return;
-  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(value));
+ipcMain.handle('store:set', (_event, key: unknown, value: unknown) => {
+  if (!validateStoreSet(key, value)) return;
+  setKv(key as string, JSON.stringify(value));
 });
 
-ipcMain.handle(
-  'oauth:start',
-  (_event, { clientId, clientSecret }: { clientId: string; clientSecret: string }) =>
-    runOAuthFlow(clientId, clientSecret)
-);
+ipcMain.handle('oauth:start', (_event, payload: unknown) => {
+  if (!validateOAuthStart(payload)) throw new Error('Invalid OAuth payload');
+  return runOAuthFlow(payload.clientId, payload.clientSecret);
+});
 
 ipcMain.handle(
   'gmail:listThreads',
-  (_event, accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string) =>
-    listThreads(accountId, labelId, maxResults, pageToken)
+  (_event, accountId: unknown, labelId: unknown, maxResults: unknown, pageToken?: unknown) => {
+    if (!validateGmailListArgs(accountId, labelId, maxResults, pageToken)) throw new Error('Invalid gmail:listThreads args');
+    return listThreads(accountId as string | undefined, labelId as string, maxResults as number, pageToken as string | undefined);
+  }
 );
-ipcMain.handle('gmail:getThread', (_event, accountId: string | undefined, threadId: string) =>
-  getThread(accountId, threadId)
-);
-ipcMain.handle('gmail:sendReply', (_event, accountId: string | undefined, threadId: string, bodyText: string) =>
-  buildAndSendReply(accountId, threadId, bodyText)
-);
+ipcMain.handle('gmail:getThread', (_event, accountId: unknown, threadId: unknown) => {
+  if (!validateGmailGetThreadArgs(accountId, threadId)) throw new Error('Invalid gmail:getThread args');
+  return getThread(accountId as string | undefined, threadId as string);
+});
+ipcMain.handle('gmail:sendReply', (_event, accountId: unknown, threadId: unknown, bodyText: unknown) => {
+  if (!validateGmailSendReplyArgs(accountId, threadId, bodyText)) throw new Error('Invalid gmail:sendReply args');
+  return buildAndSendReply(accountId as string | undefined, threadId as string, bodyText as string);
+});
 ipcMain.handle('gmail:getLabelIds', () => getLabelIds());
 ipcMain.handle(
   'gmail:modifyLabels',
-  (_event, accountId: string | undefined, threadId: string, addLabelIds: string[], removeLabelIds: string[]) =>
-    modifyLabels(accountId, threadId, addLabelIds, removeLabelIds)
+  (_event, accountId: unknown, threadId: unknown, addLabelIds: unknown, removeLabelIds: unknown) => {
+    if (!validateGmailModifyLabelsArgs(accountId, threadId, addLabelIds, removeLabelIds)) throw new Error('Invalid gmail:modifyLabels args');
+    return modifyLabels(
+      accountId as string | undefined,
+      threadId as string,
+      addLabelIds as string[],
+      removeLabelIds as string[]
+    );
+  }
 );
-ipcMain.handle('gmail:trashThread', (_event, accountId: string | undefined, threadId: string) =>
-  trashThread(accountId, threadId)
-);
+ipcMain.handle('gmail:trashThread', (_event, accountId: unknown, threadId: unknown) => {
+  if (!validateGmailGetThreadArgs(accountId, threadId)) throw new Error('Invalid gmail:trashThread args');
+  return trashThread(accountId as string | undefined, threadId as string);
+});
 ipcMain.handle(
   'gmail:searchThreads',
-  (_event, accountId: string | undefined, query: string, maxResults: number, pageToken?: string) =>
-    searchThreads(accountId, query, maxResults, pageToken)
+  (_event, accountId: unknown, query: unknown, maxResults: unknown, pageToken?: unknown) => {
+    if (!validateGmailSearchArgs(accountId, query, maxResults, pageToken)) throw new Error('Invalid gmail:searchThreads args');
+    return searchThreads(accountId as string | undefined, query as string, maxResults as number, pageToken as string | undefined);
+  }
 );
-ipcMain.handle('gmail:listLabels', (_event, accountId: string | undefined) => listLabels(accountId));
+ipcMain.handle('gmail:listLabels', (_event, accountId: unknown) => {
+  if (!optionalAccountId(accountId)) throw new Error('Invalid gmail:listLabels args');
+  return listLabels(accountId as string | undefined);
+});
 
-ipcMain.handle('calendar:listEvents', (_event, accountId: string | undefined, daysAhead?: number) =>
-  listEvents(accountId, daysAhead)
-);
-ipcMain.handle('calendar:listEventsRange', (_event, accountId: string | undefined, timeMin: string, timeMax: string) =>
-  listEventsRange(accountId, timeMin, timeMax)
-);
+ipcMain.handle('calendar:listEvents', (_event, accountId: unknown, daysAhead?: unknown) => {
+  if (!validateCalendarListEventsArgs(accountId, daysAhead)) throw new Error('Invalid calendar:listEvents args');
+  return listEvents(accountId as string | undefined, daysAhead as number | undefined);
+});
+ipcMain.handle('calendar:listEventsRange', (_event, accountId: unknown, timeMin: unknown, timeMax: unknown) => {
+  if (!validateCalendarListEventsRangeArgs(accountId, timeMin, timeMax)) throw new Error('Invalid calendar:listEventsRange args');
+  return listEventsRange(accountId as string | undefined, timeMin as string, timeMax as string);
+});
 ipcMain.handle(
   'calendar:respondToEvent',
-  (_event, accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') =>
-    respondToEvent(accountId, eventId, response)
+  (_event, accountId: unknown, eventId: unknown, response: unknown) => {
+    if (!validateCalendarRespondArgs(accountId, eventId, response)) throw new Error('Invalid calendar:respondToEvent args');
+    return respondToEvent(accountId as string | undefined, eventId as string, response as 'accepted' | 'tentative' | 'declined');
+  }
 );
 
 // Accounts
 ipcMain.handle('accounts:list', () => {
   const db = getDb();
   if (!db) return { accounts: [], activeId: null, accountsOrder: [] };
-  const orderRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('accounts_order') as { value: string } | undefined;
-  const accountsOrder: string[] = orderRow ? JSON.parse(orderRow.value) : [];
-  const activeRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('active_account') as { value: string } | undefined;
-  const activeId = activeRow ? JSON.parse(activeRow.value) as string : null;
+  const orderRaw = getKv('accounts_order');
+  const accountsOrder: string[] = (orderRaw ? (parseStoreGet({ value: orderRaw }) as string[]) : null) ?? [];
+  const activeRaw = getKv('active_account');
+  const activeId = (activeRaw ? (parseStoreGet({ value: activeRaw }) as string | null) : null) ?? null;
   const rows = db.prepare('SELECT id, email FROM accounts ORDER BY id').all() as { id: string; email: string }[];
   const accounts = rows.map((r) => ({ id: r.id, email: r.email }));
   const ordered = accountsOrder.length
@@ -162,47 +232,43 @@ ipcMain.handle('accounts:list', () => {
     : accounts;
   return { accounts: ordered, activeId, accountsOrder };
 });
-ipcMain.handle('accounts:setActive', (_event, accountId: string) => {
-  const db = getDb();
-  if (!db) return;
-  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(accountId));
+ipcMain.handle('accounts:setActive', (_event, accountId: unknown) => {
+  if (!validateAccountId(accountId)) return;
+  setKv('active_account', JSON.stringify(accountId));
 });
-ipcMain.handle('accounts:reorder', (_event, orderedIds: string[]) => {
-  const db = getDb();
-  if (!db) return;
-  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify(orderedIds));
+ipcMain.handle('accounts:reorder', (_event, orderedIds: unknown) => {
+  if (!validateAccountsReorder(orderedIds)) return;
+  setKv('accounts_order', JSON.stringify(orderedIds));
 });
-ipcMain.handle('accounts:remove', (_event, accountId: string) => {
+ipcMain.handle('accounts:remove', (_event, accountId: unknown) => {
+  if (!validateAccountId(accountId)) return;
   const db = getDb();
   if (!db) return;
   db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId);
   db.prepare('DELETE FROM sync_state WHERE account_id = ?').run(accountId);
-  const orderRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('accounts_order') as { value: string } | undefined;
-  const order: string[] = orderRow ? JSON.parse(orderRow.value) : [];
+  const orderRaw = getKv('accounts_order');
+  const order: string[] = (orderRaw ? (parseStoreGet({ value: orderRaw }) as string[]) : null) ?? [];
   const next = order.filter((id) => id !== accountId);
-  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('accounts_order', JSON.stringify(next));
-  const activeRow = db.prepare('SELECT value FROM kv WHERE key = ?').get('active_account') as { value: string } | undefined;
-  const active = activeRow ? JSON.parse(activeRow.value) as string : null;
+  setKv('accounts_order', JSON.stringify(next));
+  const activeRaw = getKv('active_account');
+  const active = (activeRaw ? (parseStoreGet({ value: activeRaw }) as string | null) : null) ?? null;
   if (active === accountId && next.length > 0) {
-    db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('active_account', JSON.stringify(next[0]));
+    setKv('active_account', JSON.stringify(next[0]));
   } else if (active === accountId) {
-    db.prepare('DELETE FROM kv WHERE key = ?').run('active_account');
+    deleteKv('active_account');
   }
 });
 
 ipcMain.handle('reminder:getMinutes', () => {
-  const db = getDb();
-  if (!db) return 15;
-  const row = db.prepare('SELECT value FROM kv WHERE key = ?').get('reminderMinutes') as { value: string } | undefined;
-  if (!row) return 15;
-  const n = Number(JSON.parse(row.value));
+  const raw = getKv('reminderMinutes');
+  if (!raw) return 15;
+  const n = Number(parseStoreGet({ value: raw }));
   return Number.isFinite(n) && n >= 0 ? n : 15;
 });
 
-ipcMain.handle('reminder:setMinutes', (_event, minutes: number) => {
-  const db = getDb();
-  if (!db) return;
-  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('reminderMinutes', JSON.stringify(minutes));
+ipcMain.handle('reminder:setMinutes', (_event, minutes: unknown) => {
+  if (!validateReminderMinutes(minutes)) return;
+  setKv('reminderMinutes', JSON.stringify(minutes));
 });
 
 // Window controls (frameless)

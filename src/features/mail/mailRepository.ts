@@ -6,6 +6,58 @@ function getGmailAPI() {
 
 const inFlightThreadRequests = new Map<string, Promise<ThreadDetail | null>>();
 
+/** LRU + TTL thread cache (renderer-side). */
+const THREAD_CACHE_MAX = 50;
+const THREAD_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry {
+  thread: ThreadDetail;
+  at: number;
+}
+
+const threadCache = new Map<string, CacheEntry>();
+const threadCacheKeyOrder: string[] = [];
+
+function threadCacheKey(accountId: string | undefined, threadId: string): string {
+  return `${accountId ?? '__active__'}::${threadId}`;
+}
+
+function pruneThreadCache(): void {
+  const now = Date.now();
+  while (threadCacheKeyOrder.length > 0) {
+    const key = threadCacheKeyOrder[0];
+    const entry = threadCache.get(key);
+    if (!entry || now - entry.at > THREAD_CACHE_TTL_MS || threadCache.size > THREAD_CACHE_MAX) {
+      threadCacheKeyOrder.shift();
+      threadCache.delete(key);
+    } else break;
+  }
+  while (threadCache.size > THREAD_CACHE_MAX && threadCacheKeyOrder.length > 0) {
+    const key = threadCacheKeyOrder.shift()!;
+    threadCache.delete(key);
+  }
+}
+
+export function getThreadFromCache(accountId: string | undefined, threadId: string): ThreadDetail | null {
+  const key = threadCacheKey(accountId, threadId);
+  const entry = threadCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.at > THREAD_CACHE_TTL_MS) {
+    threadCache.delete(key);
+    const i = threadCacheKeyOrder.indexOf(key);
+    if (i !== -1) threadCacheKeyOrder.splice(i, 1);
+    return null;
+  }
+  return entry.thread;
+}
+
+export function invalidateThreadCache(accountId: string | undefined, threadId: string): void {
+  const key = threadCacheKey(accountId, threadId);
+  threadCache.delete(key);
+  const i = threadCacheKeyOrder.indexOf(key);
+  if (i !== -1) threadCacheKeyOrder.splice(i, 1);
+}
+
 export interface ThreadSummary {
   id: string;
   snippet: string;
@@ -64,27 +116,28 @@ export interface ThreadDetail {
 export async function fetchThread(accountId: string | undefined, threadId: string): Promise<ThreadDetail | null> {
   const gmail = getGmailAPI();
   if (!gmail) return null;
-  const requestKey = `${accountId ?? '__active__'}::${threadId}`;
+  const requestKey = threadCacheKey(accountId, threadId);
   const existing = inFlightThreadRequests.get(requestKey);
-  if (existing) {
-    return existing;
-  }
+  if (existing) return existing;
   const requestPromise = (async () => {
-  const { id, messages } = await gmail.getThread(accountId, threadId);
-  const mappedMessages = messages.map((m) => ({
-    id: m.id,
-    from: m.from ?? '',
-    to: m.to ?? '',
-    subject: m.subject ?? '',
-    date: m.date ?? '',
-    bodyPlain: m.bodyPlain || m.snippet,
-    bodyHtml: m.bodyHtml ? sanitizeHtml(m.bodyHtml) : '',
-    snippet: m.snippet,
-  }));
-  return {
-    id,
-    messages: mappedMessages,
-  };
+    const { id, messages } = await gmail.getThread(accountId, threadId);
+    const mappedMessages = messages.map((m) => ({
+      id: m.id,
+      from: m.from ?? '',
+      to: m.to ?? '',
+      subject: m.subject ?? '',
+      date: m.date ?? '',
+      bodyPlain: m.bodyPlain || m.snippet,
+      bodyHtml: m.bodyHtml ? sanitizeHtml(m.bodyHtml) : '',
+      snippet: m.snippet,
+    }));
+    const thread: ThreadDetail = { id, messages: mappedMessages };
+    pruneThreadCache();
+    const keyOrderIdx = threadCacheKeyOrder.indexOf(requestKey);
+    if (keyOrderIdx !== -1) threadCacheKeyOrder.splice(keyOrderIdx, 1);
+    threadCacheKeyOrder.push(requestKey);
+    threadCache.set(requestKey, { thread, at: Date.now() });
+    return thread;
   })();
   inFlightThreadRequests.set(requestKey, requestPromise);
   try {
@@ -97,18 +150,22 @@ export async function fetchThread(accountId: string | undefined, threadId: strin
 export async function sendReply(accountId: string | undefined, threadId: string, bodyText: string): Promise<{ id: string }> {
   const gmail = getGmailAPI();
   if (!gmail) throw new Error('Gmail not available');
-  return gmail.sendReply(accountId, threadId, bodyText);
+  const result = await gmail.sendReply(accountId, threadId, bodyText);
+  invalidateThreadCache(accountId, threadId);
+  return result;
 }
 
 /** Done = archive + mark read: remove INBOX and UNREAD. */
 export async function doneThread(accountId: string | undefined, threadId: string): Promise<void> {
   const gmail = getGmailAPI();
   if (!gmail) throw new Error('Gmail not available');
-  return gmail.modifyLabels(accountId, threadId, [], ['INBOX', 'UNREAD']);
+  await gmail.modifyLabels(accountId, threadId, [], ['INBOX', 'UNREAD']);
+  invalidateThreadCache(accountId, threadId);
 }
 
 export async function deleteThread(accountId: string | undefined, threadId: string): Promise<void> {
   const gmail = getGmailAPI();
   if (!gmail) throw new Error('Gmail not available');
-  return gmail.trashThread(accountId, threadId);
+  await gmail.trashThread(accountId, threadId);
+  invalidateThreadCache(accountId, threadId);
 }

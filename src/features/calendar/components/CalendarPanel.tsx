@@ -18,16 +18,17 @@ export function CalendarPanel({ onClose }: CalendarPanelProps) {
 
   useEffect(() => {
     if (activeAccountId === undefined) return;
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     setLoading(true);
     fetchEvents(activeAccountId ?? undefined, 14)
       .then((list) => {
-        if (!cancelled) setEvents(list);
+        if (!signal.aborted) setEvents(list);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!signal.aborted) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [activeAccountId]);
 
   useEffect(() => {

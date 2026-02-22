@@ -1,5 +1,8 @@
 import { google } from 'googleapis';
 import { getDb } from './db';
+import { getSecret } from './secretStorage';
+import { safeParse } from './safeJson';
+import { withRetry } from './lib/apiClient';
 
 const LABEL_INBOX = 'INBOX';
 const LABEL_SENT = 'SENT';
@@ -7,7 +10,7 @@ const LABEL_DRAFT = 'DRAFT';
 
 function getStoredJson(db: import('better-sqlite3').Database, key: string): unknown {
   const row = db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined;
-  return row ? JSON.parse(row.value) : null;
+  return row ? safeParse(row.value, null) : null;
 }
 
 function getActiveAccountId(db: import('better-sqlite3').Database): string | null {
@@ -25,16 +28,13 @@ function getGmailClient(accountId?: string) {
   if (!email) throw new Error('No account connected');
 
   const clientId = getStoredJson(db, 'google_client_id') as string | null;
-  const clientSecret = getStoredJson(db, 'google_client_secret') as string | null;
+  const clientSecret = getSecret('google_client_secret');
   if (!clientId || !clientSecret) throw new Error('Google OAuth credentials not stored');
 
   const row = db.prepare('SELECT tokens FROM accounts WHERE id = ?').get(email) as { tokens: string } | undefined;
   if (!row) throw new Error('No tokens for account');
-  const tokens = JSON.parse(row.tokens) as {
-    access_token?: string;
-    refresh_token?: string;
-    expiry_date?: number;
-  };
+  const tokens = safeParse(row.tokens, {} as { access_token?: string; refresh_token?: string; expiry_date?: number });
+  if (!tokens.refresh_token) throw new Error('No tokens for account');
 
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:3333/oauth2callback');
   oauth2Client.setCredentials({
@@ -74,12 +74,13 @@ async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds
   try {
     const results = await Promise.allSettled(
       threadIds.map((id) =>
+        // Format and metadataHeaders are valid but not in the minimal type
         gmail.users.threads.get({
           userId: 'me',
           id,
           format: 'metadata',
           metadataHeaders: ['Subject', 'From'],
-        } as any)
+        } as { userId: string; id: string; format: string; metadataHeaders: string[] })
       )
     );
     for (const r of results) {
@@ -89,7 +90,7 @@ async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds
       const msgs = data.messages || [];
       const firstMsg = msgs[0];
       const rawH = firstMsg?.payload?.headers || [];
-      const headers = rawH.map((h: any) => ({ name: h.name ?? '', value: h.value ?? '' }));
+      const headers = rawH.map((h) => ({ name: (h as { name?: string | null; value?: string | null }).name ?? '', value: (h as { name?: string | null; value?: string | null }).value ?? '' }));
       const subj = getHeader(headers, 'Subject');
       const from = getHeader(headers, 'From');
       map.set(data.id, {
@@ -105,26 +106,28 @@ async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds
 }
 
 export async function listThreads(accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string): Promise<ListThreadsResult> {
-  const gmail = getGmailClient(accountId);
-  const res = await gmail.users.threads.list({
-    userId: 'me',
-    labelIds: [labelId],
-    maxResults: Math.min(maxResults, 50),
-    pageToken: pageToken || undefined,
+  return withRetry(async () => {
+    const gmail = getGmailClient(accountId);
+    const res = await gmail.users.threads.list({
+      userId: 'me',
+      labelIds: [labelId],
+      maxResults: Math.min(maxResults, 50),
+      pageToken: pageToken || undefined,
+    });
+    const rawThreads = res.data.threads || [];
+    const meta = await enrichThreads(gmail, rawThreads.map((t) => t.id!));
+    const threads: ThreadSummary[] = rawThreads.map((t) => {
+      const m = meta.get(t.id!);
+      return {
+        id: t.id!,
+        snippet: m?.snippet || t.snippet || '',
+        subject: m?.subject,
+        from: m?.from,
+        historyId: t.historyId ? String(t.historyId) : undefined,
+      };
+    });
+    return { threads, nextPageToken: res.data.nextPageToken || undefined };
   });
-  const rawThreads = res.data.threads || [];
-  const meta = await enrichThreads(gmail, rawThreads.map((t) => t.id!));
-  const threads: ThreadSummary[] = rawThreads.map((t) => {
-    const m = meta.get(t.id!);
-    return {
-      id: t.id!,
-      snippet: m?.snippet || t.snippet || '',
-      subject: m?.subject,
-      from: m?.from,
-      historyId: t.historyId ? String(t.historyId) : undefined,
-    };
-  });
-  return { threads, nextPageToken: res.data.nextPageToken || undefined };
 }
 
 export interface MessagePart {
@@ -158,7 +161,13 @@ function decodeBase64Url(str: string): string {
   }
 }
 
-function extractBodies(part: any): { plain: string; html: string } {
+interface GmailPart {
+  mimeType?: string | null;
+  body?: { data?: string } | null;
+  parts?: GmailPart[] | null;
+}
+
+function extractBodies(part: GmailPart | undefined): { plain: string; html: string } {
   let plain = '';
   let html = '';
   const mime: string = (part?.mimeType ?? '').toLowerCase();
@@ -180,8 +189,9 @@ function extractBodies(part: any): { plain: string; html: string } {
 }
 
 export function getThread(accountId: string | undefined, threadId: string): Promise<{ id: string; messages: GmailMessage[] }> {
-  const gmail = getGmailClient(accountId);
-  return gmail.users.threads
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.threads
     .get({
       userId: 'me',
       id: threadId,
@@ -192,7 +202,7 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
       const rawMessages = (thread.messages || []).map((m) => {
         const p = m.payload;
         const headers = (p?.headers || []).map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
-        const { plain, html } = extractBodies(p);
+        const { plain, html } = extractBodies(p as GmailPart);
         return {
           id: m.id!,
           threadId: thread.id!,
@@ -251,6 +261,7 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
       });
       return { id: thread.id!, messages };
     });
+  });
 }
 
 function getHeader(headers: { name: string; value: string }[] | undefined, name: string): string {
@@ -281,43 +292,45 @@ export function sendReply(accountId: string | undefined, threadId: string, rawMe
 }
 
 export function buildAndSendReply(accountId: string | undefined, threadId: string, bodyText: string): Promise<{ id: string }> {
-  const gmail = getGmailClient(accountId);
-  const db = getDb();
-  if (!db) throw new Error('Database not initialized');
-  const email = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
-  const fromEmail = email || '';
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    const db = getDb();
+    if (!db) throw new Error('Database not initialized');
+    const email = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
+    const fromEmail = email || '';
 
-  return gmail.users.threads
-    .get({ userId: 'me', id: threadId, format: 'minimal' })
-    .then((threadRes) => {
-      const firstMsg = threadRes.data.messages?.[0];
-      if (!firstMsg) throw new Error('Thread has no messages');
-      return gmail.users.messages.get({
-        userId: 'me',
-        id: firstMsg.id!,
-        format: 'metadata',
-        metadataHeaders: ['From', 'To', 'Subject', 'Reply-To'],
+    return gmail.users.threads
+      .get({ userId: 'me', id: threadId, format: 'minimal' })
+      .then((threadRes) => {
+        const firstMsg = threadRes.data.messages?.[0];
+        if (!firstMsg) throw new Error('Thread has no messages');
+        return gmail.users.messages.get({
+          userId: 'me',
+          id: firstMsg.id!,
+          format: 'metadata',
+          metadataHeaders: ['From', 'To', 'Subject', 'Reply-To'],
+        });
+      })
+      .then((msgRes) => {
+        const rawHeaders = msgRes.data.payload?.headers || [];
+        const headers = rawHeaders.map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
+        const replyTo = getHeader(headers, 'Reply-To') || getHeader(headers, 'From');
+        const subject = getHeader(headers, 'Subject') || '';
+        const reSubject = subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`;
+
+        const lines = [
+          `From: ${fromEmail}`,
+          `To: ${replyTo}`,
+          `Subject: ${reSubject}`,
+          'Content-Type: text/plain; charset=utf-8',
+          'MIME-Version: 1.0',
+          '',
+          bodyText.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'),
+        ];
+        const raw = base64UrlEncode(lines.join('\r\n'));
+        return sendReply(accountId, threadId, raw);
       });
-    })
-    .then((msgRes) => {
-      const rawHeaders = msgRes.data.payload?.headers || [];
-      const headers = rawHeaders.map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
-      const replyTo = getHeader(headers, 'Reply-To') || getHeader(headers, 'From');
-      const subject = getHeader(headers, 'Subject') || '';
-      const reSubject = subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`;
-
-      const lines = [
-        `From: ${fromEmail}`,
-        `To: ${replyTo}`,
-        `Subject: ${reSubject}`,
-        'Content-Type: text/plain; charset=utf-8',
-        'MIME-Version: 1.0',
-        '',
-        bodyText.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'),
-      ];
-      const raw = base64UrlEncode(lines.join('\r\n'));
-      return sendReply(accountId, threadId, raw);
-    });
+  });
 }
 
 export function modifyLabels(
@@ -326,19 +339,23 @@ export function modifyLabels(
   addLabelIds: string[],
   removeLabelIds: string[]
 ): Promise<void> {
-  const gmail = getGmailClient(accountId);
-  return gmail.users.threads
-    .modify({
-      userId: 'me',
-      id: threadId,
-      requestBody: { addLabelIds, removeLabelIds },
-    })
-    .then(() => undefined);
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.threads
+      .modify({
+        userId: 'me',
+        id: threadId,
+        requestBody: { addLabelIds, removeLabelIds },
+      })
+      .then(() => undefined);
+  });
 }
 
 export function trashThread(accountId: string | undefined, threadId: string): Promise<void> {
-  const gmail = getGmailClient(accountId);
-  return gmail.users.threads.trash({ userId: 'me', id: threadId }).then(() => undefined);
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.threads.trash({ userId: 'me', id: threadId }).then(() => undefined);
+  });
 }
 
 export interface GmailLabel {
@@ -348,16 +365,18 @@ export interface GmailLabel {
 }
 
 export function listLabels(accountId: string | undefined): Promise<GmailLabel[]> {
-  const gmail = getGmailClient(accountId);
-  return gmail.users.labels
-    .list({ userId: 'me' })
-    .then((res) =>
-      (res.data.labels || []).map((l) => ({
-        id: l.id!,
-        name: l.name || l.id!,
-        type: l.type || 'user',
-      }))
-    );
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.labels
+      .list({ userId: 'me' })
+      .then((res) =>
+        (res.data.labels || []).map((l) => ({
+          id: l.id!,
+          name: l.name || l.id!,
+          type: l.type || 'user',
+        }))
+      );
+  });
 }
 
 export async function searchThreads(
@@ -366,26 +385,28 @@ export async function searchThreads(
   maxResults: number,
   pageToken?: string
 ): Promise<ListThreadsResult> {
-  const gmail = getGmailClient(accountId);
-  const res = await gmail.users.threads.list({
-    userId: 'me',
-    q: query,
-    maxResults: Math.min(maxResults, 50),
-    pageToken: pageToken || undefined,
+  return withRetry(async () => {
+    const gmail = getGmailClient(accountId);
+    const res = await gmail.users.threads.list({
+      userId: 'me',
+      q: query,
+      maxResults: Math.min(maxResults, 50),
+      pageToken: pageToken || undefined,
+    });
+    const rawThreads = res.data.threads || [];
+    const meta = await enrichThreads(gmail, rawThreads.map((t) => t.id!));
+    const threads: ThreadSummary[] = rawThreads.map((t) => {
+      const m = meta.get(t.id!);
+      return {
+        id: t.id!,
+        snippet: m?.snippet || t.snippet || '',
+        subject: m?.subject,
+        from: m?.from,
+        historyId: t.historyId ? String(t.historyId) : undefined,
+      };
+    });
+    return { threads, nextPageToken: res.data.nextPageToken || undefined };
   });
-  const rawThreads = res.data.threads || [];
-  const meta = await enrichThreads(gmail, rawThreads.map((t) => t.id!));
-  const threads: ThreadSummary[] = rawThreads.map((t) => {
-    const m = meta.get(t.id!);
-    return {
-      id: t.id!,
-      snippet: m?.snippet || t.snippet || '',
-      subject: m?.subject,
-      from: m?.from,
-      historyId: t.historyId ? String(t.historyId) : undefined,
-    };
-  });
-  return { threads, nextPageToken: res.data.nextPageToken || undefined };
 }
 
 export function getLabelIds(): { INBOX: string; SENT: string; DRAFT: string } {

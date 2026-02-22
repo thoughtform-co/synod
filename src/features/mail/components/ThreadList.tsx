@@ -39,24 +39,24 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
 
   useEffect(() => {
     if (activeAccountId === undefined) return;
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     setLoading(true);
     setError(null);
     setNextPageToken(undefined);
     fetchThreadsByView(activeAccountId ?? undefined, mailView, PAGE_SIZE)
       .then(({ threads: list, nextPageToken: token }) => {
-        if (!cancelled) {
-          setThreads(list);
-          setNextPageToken(token);
-        }
+        if (signal.aborted) return;
+        setThreads(list);
+        setNextPageToken(token);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
+        if (!signal.aborted) setError(e instanceof Error ? e.message : 'Failed to load');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!signal.aborted) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [activeAccountId, mailView.type, mailView.type === 'label' ? mailView.labelId : mailView.query]);
 
   const loadMore = () => {

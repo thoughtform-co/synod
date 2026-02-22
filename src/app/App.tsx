@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AppShell } from '@/components/layout/AppShell';
 import { ConnectGoogleAccountView } from '@/features/auth/ConnectGoogleAccountView';
 import { getStoredAccount } from '@/features/auth/authStore';
@@ -46,17 +47,21 @@ export default function App() {
 
   if (!account?.email) {
     return (
-      <div className="synod-app">
-        <ConnectGoogleAccountView
-          onConnected={() => getStoredAccount().then((a) => setAccount(a))}
-        />
-      </div>
+      <ErrorBoundary>
+        <div className="synod-app">
+          <ConnectGoogleAccountView
+            onConnected={() => getStoredAccount().then((a) => setAccount(a))}
+          />
+        </div>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <div className="synod-app">
-      <AppShell />
-    </div>
+    <ErrorBoundary>
+      <div className="synod-app">
+        <AppShell />
+      </div>
+    </ErrorBoundary>
   );
 }

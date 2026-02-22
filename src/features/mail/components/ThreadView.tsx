@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
 import { Check, ChevronRight, Clock, ListTodo, Trash2 } from 'lucide-react';
-import { fetchThread, doneThread, deleteThread, type ThreadDetail } from '../mailRepository';
+import { fetchThread, getThreadFromCache, doneThread, deleteThread, type ThreadDetail, type ThreadMessage } from '../mailRepository';
+import { recordThreadCacheHit, recordThreadFetchDurationMs } from '@/lib/metrics';
 import { formatEmailDate } from '../utils';
 import { ReplyComposer } from './ReplyComposer';
 
@@ -27,6 +28,52 @@ function isFromCurrentUser(from: string, currentUserEmail: string | null | undef
   return from.toLowerCase().includes(email);
 }
 
+interface ThreadMessageRowProps {
+  msg: ThreadMessage;
+  isExpanded: boolean;
+  fromMe: boolean;
+  onToggle: (msgId: string) => void;
+  registerRef: (id: string, el: HTMLDivElement | null) => void;
+}
+
+const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, onToggle, registerRef }: ThreadMessageRowProps) {
+  const snippet = useMemo(
+    () => (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ') || '(No content)',
+    [msg.bodyPlain, msg.snippet]
+  );
+  const formattedDate = useMemo(() => formatEmailDate(msg.date), [msg.date]);
+  return (
+    <div
+      ref={(el) => registerRef(msg.id, el)}
+      className={`thread-view__message ${isExpanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'} ${fromMe ? 'thread-view__message--from-me' : ''}`}
+    >
+      <button
+        type="button"
+        className="thread-view__message-header"
+        onClick={() => onToggle(msg.id)}
+        aria-expanded={isExpanded}
+      >
+        <ChevronRight
+          size={14}
+          strokeWidth={1.5}
+          className={`thread-view__message-chevron ${isExpanded ? 'thread-view__message-chevron--open' : ''}`}
+        />
+        <span className="thread-view__message-from">{msg.from}</span>
+        {!isExpanded && <span className="thread-view__message-snippet">{snippet}</span>}
+        <span className="thread-view__message-date">{formattedDate}</span>
+      </button>
+      {isExpanded && (
+        <div
+          className={`thread-view__message-body ${msg.bodyHtml ? 'thread-view__message-body--html' : ''}`}
+          {...(msg.bodyHtml
+            ? { dangerouslySetInnerHTML: { __html: msg.bodyHtml } }
+            : { children: msg.bodyPlain })}
+        />
+      )}
+    </div>
+  );
+});
+
 export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone, onDelete }: ThreadViewProps) {
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,28 +85,54 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
 
   useEffect(() => {
     if (activeAccountId === undefined) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+    const controller = new AbortController();
+    const { signal } = controller;
+    const cached = getThreadFromCache(activeAccountId ?? undefined, threadId);
+    if (cached) {
+      recordThreadCacheHit();
+      setThread(cached);
+      setLoading(false);
+      setError(null);
+      if (cached.messages.length > 0) {
+        setExpandedIds(new Set([cached.messages[cached.messages.length - 1].id]));
+      }
+    } else {
+      setLoading(true);
+      setError(null);
+    }
+    const fetchStart = Date.now();
     fetchThread(activeAccountId ?? undefined, threadId)
       .then((t) => {
-        if (!cancelled) {
-          setThread(t);
-          if (t && t.messages.length > 0) {
-            setExpandedIds(new Set([t.messages[t.messages.length - 1].id]));
-          }
+        if (signal.aborted) return;
+        recordThreadFetchDurationMs(Date.now() - fetchStart);
+        setThread(t);
+        if (t && t.messages.length > 0) {
+          setExpandedIds((prev) => {
+            const next = new Set(prev);
+            next.add(t.messages[t.messages.length - 1].id);
+            return next;
+          });
         }
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load thread');
+        if (!signal.aborted) setError(e instanceof Error ? e.message : 'Failed to load thread');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!signal.aborted) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [activeAccountId, threadId]);
 
   const msgRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const registerMsgRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) msgRefs.current.set(id, el);
+    else msgRefs.current.delete(id);
+  }, []);
+
+  const reversedMessages = useMemo(
+    () => (thread ? [...thread.messages].reverse() : []),
+    [thread]
+  );
 
   const pendingScrollRef = useRef<string | null>(null);
 
@@ -255,44 +328,16 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
             {thread.messages.length - expandedIds.size} collapsed message{thread.messages.length - expandedIds.size !== 1 ? 's' : ''}
           </button>
         )}
-        {[...thread.messages].reverse().map((msg) => {
-          const isExpanded = expandedIds.has(msg.id);
-          const snippet = (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ');
-          const fromMe = isFromCurrentUser(msg.from, currentUserEmail ?? null);
-          return (
-            <div
-              key={msg.id}
-              ref={(el) => { if (el) msgRefs.current.set(msg.id, el); else msgRefs.current.delete(msg.id); }}
-              className={`thread-view__message ${isExpanded ? 'thread-view__message--expanded' : 'thread-view__message--collapsed'} ${fromMe ? 'thread-view__message--from-me' : ''}`}
-            >
-              <button
-                type="button"
-                className="thread-view__message-header"
-                onClick={() => toggleMessage(msg.id)}
-                aria-expanded={isExpanded}
-              >
-                <ChevronRight
-                  size={14}
-                  strokeWidth={1.5}
-                  className={`thread-view__message-chevron ${isExpanded ? 'thread-view__message-chevron--open' : ''}`}
-                />
-                <span className="thread-view__message-from">{msg.from}</span>
-                {!isExpanded && (
-                  <span className="thread-view__message-snippet">{snippet || '(No content)'}</span>
-                )}
-                <span className="thread-view__message-date">{formatEmailDate(msg.date)}</span>
-              </button>
-              {isExpanded && (
-                <div
-                  className={`thread-view__message-body ${msg.bodyHtml ? 'thread-view__message-body--html' : ''}`}
-                  {...(msg.bodyHtml
-                    ? { dangerouslySetInnerHTML: { __html: msg.bodyHtml } }
-                    : { children: msg.bodyPlain })}
-                />
-              )}
-            </div>
-          );
-        })}
+        {reversedMessages.map((msg) => (
+          <ThreadMessageRow
+            key={msg.id}
+            msg={msg}
+            isExpanded={expandedIds.has(msg.id)}
+            fromMe={isFromCurrentUser(msg.from, currentUserEmail ?? null)}
+            onToggle={toggleMessage}
+            registerRef={registerMsgRef}
+          />
+        ))}
       </div>
     </div>
   );

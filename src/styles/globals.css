@@ -53,6 +53,42 @@ body {
   color: var(--dawn-50);
 }
 
+.error-boundary {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--void);
+  color: var(--dawn);
+}
+
+.error-boundary__title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.error-boundary__message {
+  color: var(--dawn-50);
+  max-width: 32rem;
+  text-align: center;
+}
+
+.error-boundary__retry {
+  padding: 0.5rem 1rem;
+  font-family: var(--font-sans);
+  background: var(--dawn-08);
+  border: 1px solid var(--dawn-20);
+  color: var(--dawn);
+  cursor: pointer;
+}
+
+.error-boundary__retry:hover {
+  background: var(--dawn-12);
+}
+
 /* ─── Shell: top bar + content ─── */
 
 .shell {

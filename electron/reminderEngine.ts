@@ -1,6 +1,7 @@
 import { Notification } from 'electron';
 import { getDb } from './db';
 import { listEvents } from './calendar';
+import { safeParse } from './safeJson';
 
 const POLL_INTERVAL_MS = 60 * 1000;
 const REMINDER_KEY = 'reminderMinutes';
@@ -8,7 +9,7 @@ const NOTIFIED_KEY = 'reminder_notified_ids';
 
 function getStoredJson(db: import('better-sqlite3').Database, key: string): unknown {
   const row = db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined;
-  return row ? JSON.parse(row.value) : null;
+  return row ? safeParse(row.value, null) : null;
 }
 
 function setStoredJson(db: import('better-sqlite3').Database, key: string, value: unknown): void {

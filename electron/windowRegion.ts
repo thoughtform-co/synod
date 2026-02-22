@@ -18,7 +18,6 @@ function ensureLoaded(): boolean {
   loaded = true;
   if (process.platform !== 'win32') return false;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const koffi = require('koffi');
     const gdi32 = koffi.load('gdi32.dll');
     const user32 = koffi.load('user32.dll');

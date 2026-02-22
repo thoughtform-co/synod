@@ -42,7 +42,7 @@ function getMonthGrid(year: number, month: number): Date[][] {
   const first = new Date(year, month, 1);
   const start = startOfWeek(first);
   const weeks: Date[][] = [];
-  let cursor = new Date(start);
+  const cursor = new Date(start);
   for (let w = 0; w < 6; w++) {
     const week: Date[] = [];
     for (let d = 0; d < 7; d++) {
