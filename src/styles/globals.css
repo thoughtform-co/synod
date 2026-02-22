@@ -876,7 +876,7 @@ body {
 .thread-list__snippet {
   display: block;
   font-size: 0.6875rem;
-  color: var(--dawn-30);
+  color: var(--dawn-50);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
