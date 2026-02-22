@@ -37,6 +37,7 @@ interface MailSidebarProps {
   onViewChange: (view: MailView) => void;
   onOpenSettings: () => void;
   onAddAccount: () => void;
+  onIndexAccount: () => void;
   refreshAccounts: () => void;
 }
 
@@ -55,6 +56,7 @@ export function MailSidebar({
   onViewChange,
   onOpenSettings,
   onAddAccount,
+  onIndexAccount,
 }: MailSidebarProps) {
   const accounts = accountsResult?.accounts ?? [];
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
@@ -123,6 +125,19 @@ export function MailSidebar({
               >
                 <Plus size={14} strokeWidth={1.5} />
                 <span>Add account</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className="sidebar-account-switcher__option"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  onIndexAccount();
+                }}
+              >
+                <ParticleNavIcon shape="embed" size={14} />
+                <span>Index emails</span>
               </button>
             </li>
           </ul>

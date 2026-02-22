@@ -138,6 +138,13 @@ export function AppShell() {
 
   const activeAccountId = accountsResult?.activeId ?? null;
 
+  const handleIndexAccount = useCallback(async () => {
+    if (!activeAccountId) return;
+    try {
+      await window.electronAPI?.indexing?.reindexAccount(activeAccountId);
+    } catch { /* noop */ }
+  }, [activeAccountId]);
+
   return (
     <div className="shell">
       <header className="shell-bar">
@@ -220,6 +227,7 @@ export function AppShell() {
               onViewChange={setMailView}
               onOpenSettings={() => setSettingsOpen(true)}
               onAddAccount={handleAddAccount}
+              onIndexAccount={handleIndexAccount}
               refreshAccounts={refreshAccounts}
             />
           </aside>

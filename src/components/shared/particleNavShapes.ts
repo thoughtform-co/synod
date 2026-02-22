@@ -22,7 +22,8 @@ export type ParticleNavShapeKey =
   | 'updates'
   | 'spam'
   | 'settings'
-  | 'sync';
+  | 'sync'
+  | 'embed';
 
 const R = 5; // nominal radius for 18px icon
 const GRID = 3;
@@ -395,6 +396,15 @@ function syncPoints(): NavShapePoint[] {
   return buildIcon(skeleton, signal, 'sync');
 }
 
+/** Embed/vectorize: hexagonal ring converging on a bright center — vector space. */
+function embedPoints(): NavShapePoint[] {
+  const outer = vertices(6, R, 0.65, Math.PI / 6);
+  const inner = vertices(3, R * 0.45, 0.85, -Math.PI / 2);
+  const skeleton = merge(outer, inner);
+  const signal = anchor(undefined, 1);
+  return buildIcon(skeleton, signal, 'embed');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
@@ -412,6 +422,7 @@ const SHAPE_MAP: Record<ParticleNavShapeKey, () => NavShapePoint[]> = {
   spam: spamPoints,
   settings: settingsPoints,
   sync: syncPoints,
+  embed: embedPoints,
 };
 
 export function getNavShape(key: ParticleNavShapeKey): NavShapePoint[] {

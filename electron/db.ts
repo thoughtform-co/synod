@@ -120,6 +120,39 @@ function runMigrations(db: Database.Database): void {
   if (v < 4) {
     db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT');
     setSchemaVersion(db, 4);
+    v = 4;
+  }
+  if (v < 5) {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        from_addr,
+        subject,
+        snippet,
+        content='messages',
+        content_rowid='rowid'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
+        INSERT INTO messages_fts(rowid, from_addr, subject, snippet)
+        VALUES (new.rowid, new.from_addr, new.subject, new.snippet);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
+        INSERT INTO messages_fts(messages_fts, rowid, from_addr, subject, snippet)
+        VALUES ('delete', old.rowid, old.from_addr, old.subject, old.snippet);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
+        INSERT INTO messages_fts(messages_fts, rowid, from_addr, subject, snippet)
+        VALUES ('delete', old.rowid, old.from_addr, old.subject, old.snippet);
+        INSERT INTO messages_fts(rowid, from_addr, subject, snippet)
+        VALUES (new.rowid, new.from_addr, new.subject, new.snippet);
+      END;
+
+      INSERT OR IGNORE INTO messages_fts(rowid, from_addr, subject, snippet)
+        SELECT rowid, from_addr, subject, snippet FROM messages;
+    `);
+    setSchemaVersion(db, 5);
   }
 }
 

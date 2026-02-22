@@ -5,7 +5,7 @@ import { initDb, getDb, getKv, setKv, deleteKv } from './db';
 import { migrateSecretsFromPlaintext } from './secretStorage';
 import { runOAuthFlow } from './oauth';
 import { listThreads, getThread, getAttachment, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
-import { getThreadListFromDb, getThreadFromDb } from './mailCache';
+import { getThreadListFromDb, getThreadFromDb, searchThreadsLocal } from './mailCache';
 import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
 import { listEvents, listEventsRange, listCalendars, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
@@ -250,6 +250,10 @@ ipcMain.handle('gmail:listLabels', (_event, accountId: unknown) => {
 });
 
 ipcMain.handle('search:isConfigured', () => isSearchConfigured());
+ipcMain.handle('search:local', (_event, accountId: unknown, query: unknown, limit?: unknown) => {
+  if (typeof accountId !== 'string' || typeof query !== 'string') throw new Error('Invalid search:local args');
+  return searchThreadsLocal(accountId, query, typeof limit === 'number' ? limit : 30);
+});
 ipcMain.handle(
   'search:keyword',
   (_event, accountIds: unknown, query: unknown, limit?: unknown, category?: unknown) => {

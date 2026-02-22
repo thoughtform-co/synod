@@ -66,6 +66,7 @@ interface ElectronAPI {
     keyword: (accountIds: string[], query: string, limit?: number, category?: string) => Promise<SearchResult[]>;
     semantic: (accountIds: string[], query: string, limit?: number, category?: string) => Promise<SearchResult[]>;
     hybrid: (accountIds: string[], query: string, limit?: number, category?: string) => Promise<SearchResult[]>;
+    local: (accountId: string, query: string, limit?: number) => Promise<LocalSearchResult[]>;
   };
   subscription?: {
     overview: (accountIds: string[]) => Promise<SubscriptionOverviewItem[]>;
@@ -104,6 +105,14 @@ export interface SearchResult {
   category: string;
   score: number;
   explanation?: string;
+}
+
+export interface LocalSearchResult {
+  threadId: string;
+  subject: string;
+  from: string;
+  snippet: string;
+  internalDate: number;
 }
 
 export interface SubscriptionOverviewItem {

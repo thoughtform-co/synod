@@ -69,6 +69,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('search:semantic', accountIds, query, limit, category),
     hybrid: (accountIds: string[], query: string, limit?: number, category?: string) =>
       ipcRenderer.invoke('search:hybrid', accountIds, query, limit, category),
+    local: (accountId: string, query: string, limit?: number) =>
+      ipcRenderer.invoke('search:local', accountId, query, limit),
   },
   subscription: {
     overview: (accountIds: string[]) => ipcRenderer.invoke('subscription:overview', accountIds),

@@ -109,3 +109,59 @@ export function getThreadFromDb(
   });
   return { id: threadId, messages };
 }
+
+export interface LocalSearchResult {
+  threadId: string;
+  subject: string;
+  from: string;
+  snippet: string;
+  internalDate: number;
+}
+
+/**
+ * Instant local FTS5 search over cached messages. Supports prefix matching.
+ * Returns thread-level results deduplicated by thread_id, newest first.
+ */
+export function searchThreadsLocal(
+  accountId: string,
+  query: string,
+  limit: number = 30
+): LocalSearchResult[] {
+  const db = getDb();
+  if (!db || !query.trim()) return [];
+  const ftsQuery = query.trim().split(/\s+/).map((w) => `"${w}"*`).join(' ');
+  try {
+    const rows = db.prepare(`
+      SELECT m.thread_id, m.subject, m.from_addr, m.snippet, m.internal_date
+      FROM messages_fts fts
+      JOIN messages m ON m.rowid = fts.rowid
+      WHERE fts.messages_fts MATCH ? AND m.account_id = ?
+      ORDER BY m.internal_date DESC
+      LIMIT ?
+    `).all(ftsQuery, accountId, limit * 3) as {
+      thread_id: string;
+      subject: string | null;
+      from_addr: string | null;
+      snippet: string | null;
+      internal_date: number | null;
+    }[];
+
+    const seen = new Set<string>();
+    const results: LocalSearchResult[] = [];
+    for (const r of rows) {
+      if (seen.has(r.thread_id)) continue;
+      seen.add(r.thread_id);
+      results.push({
+        threadId: r.thread_id,
+        subject: r.subject ?? '',
+        from: r.from_addr ?? '',
+        snippet: r.snippet ?? '',
+        internalDate: r.internal_date ?? 0,
+      });
+      if (results.length >= limit) break;
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}

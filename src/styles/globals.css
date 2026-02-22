@@ -853,6 +853,7 @@ body {
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 
+
 .mail-search__bar:focus-within {
   border-color: var(--dawn-15);
 }
