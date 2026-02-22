@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import type { LocalSearchResult } from '@/vite-env';
 import { fetchThreadsByView, type ThreadSummary, type MailView } from '../mailRepository';
-import { formatThreadListDate } from '../utils';
+import { formatThreadListDate, getDateSection } from '../utils';
 import { useSyncStatus } from '../useSyncStatus';
 
 const VIEW_TITLES: Record<string, string> = {
@@ -29,11 +29,13 @@ interface ThreadListProps {
   removedThreadIds?: string[];
   /** When set, show these filtered results instead of the normal thread list. */
   searchResults?: LocalSearchResult[];
+  /** Ref updated with the current visible thread IDs for external consumers. */
+  threadIdsRef?: React.MutableRefObject<string[]>;
 }
 
 const PAGE_SIZE = 30;
 
-export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread, removedThreadIds = [], searchResults = [] }: ThreadListProps) {
+export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread, removedThreadIds = [], searchResults = [], threadIdsRef }: ThreadListProps) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,19 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
     prevSyncStatus.current = syncStatus;
   }, [syncStatus, activeAccountId, mailView]);
 
+  // Refetch when stale cache entries are backfilled in the background.
+  useEffect(() => {
+    const unsub = window.electronAPI?.sync?.onThreadsRefreshed?.(() => {
+      if (activeAccountId !== undefined) {
+        fetchThreadsByView(activeAccountId ?? undefined, mailView, PAGE_SIZE).then(({ threads: list, nextPageToken: token }) => {
+          setThreads(list);
+          setNextPageToken(token);
+        });
+      }
+    });
+    return unsub;
+  }, [activeAccountId, mailView]);
+
   const loadMore = () => {
     if (!nextPageToken || loadingMore) return;
     setLoadingMore(true);
@@ -102,6 +117,9 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
     ? searchResults.map((r) => ({ threadId: r.threadId, from: r.from, subject: r.subject, snippet: r.snippet, internalDate: r.internalDate }))
     : visibleThreads.map((t) => ({ threadId: t.id, from: t.from, subject: t.subject, snippet: t.snippet, internalDate: t.internalDate }));
 
+  const itemIds = items.map((i) => i.threadId);
+  if (threadIdsRef) threadIdsRef.current = itemIds;
+
   return (
     <div className="thread-list">
       {!isSearchActive && (
@@ -122,22 +140,30 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
       ) : (
         <>
           <ul className="thread-list__items">
-            {items.map((item) => (
-              <li key={item.threadId}>
-                <button
-                  type="button"
-                  className={`thread-list__item ${selectedThreadId === item.threadId ? 'thread-list__item--selected' : ''}`}
-                  onClick={() => onSelectThread(item.threadId)}
-                >
-                  <div className="thread-list__row thread-list__row--meta">
-                    <span className="thread-list__from">{item.from || '—'}</span>
-                    <span className="thread-list__date">{formatThreadListDate(item.internalDate)}</span>
-                  </div>
-                  <span className="thread-list__subject">{item.subject || '(No subject)'}</span>
-                  <span className="thread-list__snippet">{item.snippet || ''}</span>
-                </button>
-              </li>
-            ))}
+            {items.map((item, i) => {
+              const section = getDateSection(item.internalDate);
+              const prevSection = i > 0 ? getDateSection(items[i - 1].internalDate) : null;
+              const showHeader = section && section !== prevSection;
+              return (
+                <li key={item.threadId}>
+                  {showHeader && (
+                    <div className="thread-list__section-header">{section}</div>
+                  )}
+                  <button
+                    type="button"
+                    className={`thread-list__item ${selectedThreadId === item.threadId ? 'thread-list__item--selected' : ''}`}
+                    onClick={() => onSelectThread(item.threadId)}
+                  >
+                    <div className="thread-list__row thread-list__row--meta">
+                      <span className="thread-list__from">{item.from || '—'}</span>
+                      <span className="thread-list__date">{formatThreadListDate(item.internalDate)}</span>
+                    </div>
+                    <span className="thread-list__subject">{item.subject || '(No subject)'}</span>
+                    <span className="thread-list__snippet">{item.snippet || ''}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           {!isSearchActive && nextPageToken && (
             <div className="thread-list__load-more">

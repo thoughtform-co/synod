@@ -176,8 +176,15 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
   const [actionPending, setActionPending] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const syncStatus = useSyncStatus();
   const prevSyncStatus = useRef(syncStatus);
+
+  const scrollToBottom = useCallback((instant = false) => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth', block: 'end' });
+    });
+  }, []);
 
   useEffect(() => {
     if (activeAccountId === undefined) return;
@@ -191,6 +198,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
       setError(null);
       if (cached.messages.length > 0) {
         setExpandedIds(new Set([cached.messages[cached.messages.length - 1].id]));
+        scrollToBottom(true);
       }
     } else {
       setLoading(true);
@@ -208,6 +216,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
             next.add(t.messages[t.messages.length - 1].id);
             return next;
           });
+          scrollToBottom(true);
         }
       })
       .catch((e) => {
@@ -217,7 +226,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
         if (!signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [activeAccountId, threadId]);
+  }, [activeAccountId, threadId, scrollToBottom]);
 
   // Refetch thread when sync becomes up-to-date so UI shows background updates.
   useEffect(() => {
@@ -459,6 +468,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
           fromEmail={currentUserEmail ?? undefined}
           toLabel={thread.messages[thread.messages.length - 1]?.from}
         />
+        <div ref={messagesEndRef} />
       </div>
     </div>
   );

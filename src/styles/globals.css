@@ -1030,6 +1030,21 @@ body {
   overflow-x: hidden;
 }
 
+.thread-list__section-header {
+  padding: var(--space-sm) var(--space-md) var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--atreides-light);
+  border-top: 1px solid var(--atreides-15);
+}
+
+li:first-child > .thread-list__section-header {
+  border-top: none;
+}
+
 .thread-list__item {
   display: block;
   width: 100%;

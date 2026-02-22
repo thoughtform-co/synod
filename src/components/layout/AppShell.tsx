@@ -138,6 +138,15 @@ export function AppShell() {
   }, [refreshAccounts]);
 
   const activeAccountId = accountsResult?.activeId ?? null;
+  const threadIdsRef = useRef<string[]>([]);
+
+  const advancePastThread = useCallback((threadId: string) => {
+    const ids = threadIdsRef.current;
+    const idx = ids.indexOf(threadId);
+    const nextId = idx >= 0 && idx < ids.length - 1 ? ids[idx + 1] : idx > 0 ? ids[idx - 1] : null;
+    setRemovedThreadIds((prev) => [...prev, threadId]);
+    setSelectedThreadId(nextId);
+  }, []);
 
   const handleIndexAccount = useCallback(async () => {
     if (!activeAccountId) return;
@@ -256,6 +265,7 @@ export function AppShell() {
               onSelectThread={setSelectedThreadId}
               removedThreadIds={removedThreadIds}
               searchResults={searchResults}
+              threadIdsRef={threadIdsRef}
             />
           </section>
           <div
@@ -274,14 +284,8 @@ export function AppShell() {
                 threadId={selectedThreadId}
                 activeAccountId={activeAccountId}
                 currentUserEmail={activeAccountId}
-                onDone={(threadId) => {
-                  setRemovedThreadIds((prev) => [...prev, threadId]);
-                  setSelectedThreadId(null);
-                }}
-                onDelete={(threadId) => {
-                  setRemovedThreadIds((prev) => [...prev, threadId]);
-                  setSelectedThreadId(null);
-                }}
+                onDone={advancePastThread}
+                onDelete={advancePastThread}
               />
             ) : (
               <div className="shell-mail__empty">

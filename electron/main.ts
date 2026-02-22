@@ -187,6 +187,17 @@ ipcMain.handle(
     if (effectiveId) {
       const cached = getThreadListFromDb(effectiveId, labelId as string, maxResults as number);
       if (cached.length > 0) {
+        const hasStaleEntries = cached.some((t) => t.internalDate == null);
+        if (hasStaleEntries) {
+          listThreads(accountId as string | undefined, labelId as string, maxResults as number, pageToken as string | undefined)
+            .then((fresh) => {
+              if (fresh.threads.length > 0) {
+                persistThreads(effectiveId, fresh.threads, labelId as string);
+                mainWindow?.webContents?.send('threads:refreshed');
+              }
+            })
+            .catch(() => {});
+        }
         return { threads: cached, nextPageToken: undefined };
       }
     }

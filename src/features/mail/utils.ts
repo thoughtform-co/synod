@@ -26,6 +26,21 @@ export function formatEmailDate(raw: string | undefined): string {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+export function getDateSection(ms: number | undefined): string {
+  if (ms == null || !Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const diff = now.getTime() - ms;
+  if (diff >= 0 && diff < WEEK_MS) return 'Recent';
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return 'Earlier this Month';
+  if (d.getFullYear() === now.getFullYear()) return MONTH_NAMES[d.getMonth()];
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 /**
  * Format epoch ms for thread list: within week "SAT 14:11", same year "FEB 21 14:11", else "21/02/2025".
  */

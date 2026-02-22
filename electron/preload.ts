@@ -60,6 +60,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.removeListener('sync:status', fn);
       };
     },
+    onThreadsRefreshed: (callback: () => void) => {
+      const fn = () => callback();
+      ipcRenderer.on('threads:refreshed', fn);
+      return () => {
+        ipcRenderer.removeListener('threads:refreshed', fn);
+      };
+    },
   },
   search: {
     isConfigured: () => ipcRenderer.invoke('search:isConfigured'),
