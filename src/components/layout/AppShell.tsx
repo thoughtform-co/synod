@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Mail, CalendarDays, Sun, Moon, Minus, Square, X } from 'lucide-react';
 import { type BaseTheme, applyTheme } from '@/app/App';
 import { MailSidebar } from '@/features/mail/components/MailSidebar';
+import { MailSearch } from '@/features/mail/components/MailSearch';
 import { ThreadList } from '@/features/mail/components/ThreadList';
 import { ThreadView } from '@/features/mail/components/ThreadView';
 import { CalendarView } from '@/features/calendar/components/CalendarView';
@@ -233,6 +234,11 @@ export function AppShell() {
             }}
           />
           <section className="shell-mail__list">
+            <MailSearch
+              activeAccountId={activeAccountId}
+              accountIds={accountsResult?.accountsOrder ?? accountsResult?.accounts?.map((a) => a.id) ?? []}
+              onSelectThread={setSelectedThreadId}
+            />
             <ThreadList
               activeAccountId={activeAccountId}
               mailView={mailView}

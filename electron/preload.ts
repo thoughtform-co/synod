@@ -61,4 +61,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
       };
     },
   },
+  search: {
+    isConfigured: () => ipcRenderer.invoke('search:isConfigured'),
+    keyword: (accountIds: string[], query: string, limit?: number, category?: string) =>
+      ipcRenderer.invoke('search:keyword', accountIds, query, limit, category),
+    semantic: (accountIds: string[], query: string, limit?: number, category?: string) =>
+      ipcRenderer.invoke('search:semantic', accountIds, query, limit, category),
+    hybrid: (accountIds: string[], query: string, limit?: number, category?: string) =>
+      ipcRenderer.invoke('search:hybrid', accountIds, query, limit, category),
+  },
+  subscription: {
+    overview: (accountIds: string[]) => ipcRenderer.invoke('subscription:overview', accountIds),
+    timeline: (accountId: string, fingerprint?: string, bucketDays?: number) =>
+      ipcRenderer.invoke('subscription:timeline', accountId, fingerprint, bucketDays),
+  },
+  indexing: {
+    isConfigured: () => ipcRenderer.invoke('indexing:isConfigured'),
+    setEmbedderApiKey: (key: string | null) => ipcRenderer.invoke('indexing:setEmbedderApiKey', key),
+    reindexAccount: (accountId: string) => ipcRenderer.invoke('indexing:reindexAccount', accountId),
+    purgeAccount: (accountId: string) => ipcRenderer.invoke('indexing:purgeAccount', accountId),
+    getMetrics: () => ipcRenderer.invoke('indexing:getMetrics'),
+  },
 });

@@ -8,6 +8,7 @@ import {
   type HistoryRecord,
   type GmailMessage,
 } from './gmail';
+import { indexThread } from './indexing/indexer';
 
 const SYNC_KIND_GMAIL = 'gmail';
 const INITIAL_SYNC_THREAD_CAP = 200;
@@ -156,6 +157,9 @@ function persistThreadWithMessages(
   for (const lid of allLabelIds) {
     insertLabel.run(accountId, threadId, lid);
   }
+  indexThread(accountId, messages).catch((e) => {
+    console.error('[syncEngine] indexThread failed for', threadId, e);
+  });
 }
 
 /** Persist full thread from getThread result. Exported for IPC write-through. */

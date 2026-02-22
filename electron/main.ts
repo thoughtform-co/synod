@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { app, BrowserWindow, ipcMain, Menu, screen, shell } from 'electron';
 import path from 'path';
 import { initDb, getDb, getKv, setKv, deleteKv } from './db';
@@ -8,6 +9,13 @@ import { getThreadListFromDb, getThreadFromDb } from './mailCache';
 import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
 import { listEvents, listEventsRange, listCalendars, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
+import { keywordSearch, semanticSearch, hybridSearch, isSearchConfigured } from './search/searchService';
+import { getSubscriptionOverview, getSubscriptionTimeline } from './indexing/subscriptionAnalytics';
+import { isIndexingConfigured, indexThread } from './indexing/indexer';
+import type { EmailCategory } from './indexing/types';
+import { setEmbedderApiKey } from './indexing/embedder';
+import { purgeAccount } from './indexing/postgresClient';
+import { getMetrics } from './indexing/metrics';
 import { setupAutoUpdater } from './updater';
 import { applyNotchRegion, clearNotchRegion, hwndFromBuffer } from './windowRegion';
 import {
@@ -28,6 +36,8 @@ import {
   validateAccountId,
   validateAccountsReorder,
   validateReminderMinutes,
+  validateSearchArgs,
+  validateSubscriptionOverviewArgs,
 } from './ipcValidation';
 
 function getEffectiveAccountId(accountId: unknown): string | null {
@@ -238,6 +248,98 @@ ipcMain.handle('gmail:listLabels', (_event, accountId: unknown) => {
   if (!optionalAccountId(accountId)) throw new Error('Invalid gmail:listLabels args');
   return listLabels(accountId as string | undefined);
 });
+
+ipcMain.handle('search:isConfigured', () => isSearchConfigured());
+ipcMain.handle(
+  'search:keyword',
+  (_event, accountIds: unknown, query: unknown, limit?: unknown, category?: unknown) => {
+    if (!validateSearchArgs(accountIds, query, limit, category)) throw new Error('Invalid search:keyword args');
+    return keywordSearch(
+      accountIds as string[],
+      query as string,
+      (limit as number) ?? 50,
+      category as EmailCategory | undefined
+    );
+  }
+);
+ipcMain.handle(
+  'search:semantic',
+  (_event, accountIds: unknown, query: unknown, limit?: unknown, category?: unknown) => {
+    if (!validateSearchArgs(accountIds, query, limit, category)) throw new Error('Invalid search:semantic args');
+    return semanticSearch(
+      accountIds as string[],
+      query as string,
+      (limit as number) ?? 50,
+      category as EmailCategory | undefined
+    );
+  }
+);
+ipcMain.handle(
+  'search:hybrid',
+  (_event, accountIds: unknown, query: unknown, limit?: unknown, category?: unknown) => {
+    if (!validateSearchArgs(accountIds, query, limit, category)) throw new Error('Invalid search:hybrid args');
+    return hybridSearch(
+      accountIds as string[],
+      query as string,
+      (limit as number) ?? 50,
+      category as EmailCategory | undefined
+    );
+  }
+);
+
+ipcMain.handle('subscription:overview', (_event, accountIds: unknown) => {
+  if (!validateSubscriptionOverviewArgs(accountIds)) throw new Error('Invalid subscription:overview args');
+  return getSubscriptionOverview(accountIds as string[]);
+});
+ipcMain.handle(
+  'subscription:timeline',
+  (_event, accountId: unknown, fingerprint?: unknown, bucketDays?: unknown) => {
+    if (!validateAccountId(accountId)) throw new Error('Invalid subscription:timeline args');
+    const days = bucketDays !== undefined ? Number(bucketDays) : 30;
+    return getSubscriptionTimeline(accountId as string, fingerprint as string | undefined, days);
+  }
+);
+
+ipcMain.handle('indexing:isConfigured', () => isIndexingConfigured());
+ipcMain.handle('indexing:setEmbedderApiKey', (_event, key: unknown) => {
+  setEmbedderApiKey(key === null || key === undefined ? null : String(key));
+});
+ipcMain.handle('indexing:reindexAccount', async (_event, accountId: unknown) => {
+  if (!validateAccountId(accountId)) throw new Error('Invalid indexing:reindexAccount args');
+  const db = getDb();
+  if (!db) return { indexed: 0, failed: 0 };
+  const { getThreadFromDb } = await import('./mailCache');
+  const rows = db.prepare('SELECT thread_id FROM threads WHERE account_id = ?').all(accountId as string) as { thread_id: string }[];
+  let indexed = 0;
+  let failed = 0;
+  for (const { thread_id } of rows) {
+    const cached = getThreadFromDb(accountId as string, thread_id);
+    if (!cached || cached.messages.length === 0) continue;
+    const asGmail = cached.messages.map((m) => ({
+      id: m.id,
+      threadId: m.threadId,
+      labelIds: m.labelIds ?? [],
+      snippet: m.snippet ?? '',
+      from: m.from,
+      to: m.to,
+      subject: m.subject,
+      date: m.date,
+      internalDate: m.internalDate,
+      bodyPlain: m.bodyPlain,
+      bodyHtml: m.bodyHtml,
+      attachments: undefined,
+    }));
+    const r = await indexThread(accountId as string, asGmail);
+    indexed += r.indexed;
+    failed += r.failed;
+  }
+  return { indexed, failed };
+});
+ipcMain.handle('indexing:purgeAccount', async (_event, accountId: unknown) => {
+  if (!validateAccountId(accountId)) throw new Error('Invalid indexing:purgeAccount args');
+  await purgeAccount(accountId as string);
+});
+ipcMain.handle('indexing:getMetrics', () => getMetrics());
 
 ipcMain.handle('calendar:listCalendars', (_event, accountId: unknown) => {
   if (!optionalAccountId(accountId)) throw new Error('Invalid calendar:listCalendars args');

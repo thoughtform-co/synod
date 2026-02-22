@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import { fetchThreadsByView, type ThreadSummary, type MailView } from '../mailRepository';
 import { useSyncStatus } from '../useSyncStatus';
 
@@ -96,8 +97,14 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
     <div className="thread-list">
       <header className="thread-list__header">
         <h2 className="thread-list__title">{viewTitle(mailView)}</h2>
-        {syncStatus === 'syncing' && <span className="thread-list__sync-status" aria-live="polite">Syncing…</span>}
-        {syncStatus === 'up-to-date' && <span className="thread-list__sync-status thread-list__sync-status--ok" aria-live="polite">Synced</span>}
+        <span
+          className={`thread-list__sync-icon ${syncStatus === 'syncing' ? 'thread-list__sync-icon--spinning' : ''}`}
+          title={syncStatus === 'syncing' ? 'Syncing…' : 'Synced'}
+          aria-live="polite"
+          aria-label={syncStatus === 'syncing' ? 'Syncing' : 'Synced'}
+        >
+          <ParticleNavIcon shape="sync" size={14} active={syncStatus === 'syncing'} />
+        </span>
       </header>
       {loading ? (
         <div className="thread-list__loading">Loading…</div>

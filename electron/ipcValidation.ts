@@ -173,3 +173,29 @@ export function validateReminderMinutes(minutes: unknown): boolean {
   const n = Number(minutes);
   return Number.isFinite(n) && n >= 0 && n <= MAX_REMINDER_MINUTES;
 }
+
+const CATEGORIES = new Set(['main', 'subscription', 'promotion', 'social', 'update', 'transactional', 'other']);
+
+export function validateSearchArgs(
+  accountIds: unknown,
+  query: unknown,
+  limit?: unknown,
+  category?: unknown
+): boolean {
+  if (!Array.isArray(accountIds)) return false;
+  if (accountIds.length > MAX_ORDERED_IDS) return false;
+  if (accountIds.some((id) => typeof id !== 'string' || id.length > MAX_ACCOUNT_ID_LEN)) return false;
+  if (typeof query !== 'string' || query.length > MAX_QUERY_LEN) return false;
+  if (limit !== undefined) {
+    const n = Number(limit);
+    if (!Number.isFinite(n) || n < 1 || n > 200) return false;
+  }
+  if (category !== undefined && category !== null && !CATEGORIES.has(category as string)) return false;
+  return true;
+}
+
+export function validateSubscriptionOverviewArgs(accountIds: unknown): boolean {
+  if (!Array.isArray(accountIds)) return false;
+  if (accountIds.length > MAX_ORDERED_IDS) return false;
+  return accountIds.every((id) => typeof id === 'string' && id.length <= MAX_ACCOUNT_ID_LEN);
+}

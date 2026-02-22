@@ -21,7 +21,8 @@ export type ParticleNavShapeKey =
   | 'social'
   | 'updates'
   | 'spam'
-  | 'settings';
+  | 'settings'
+  | 'sync';
 
 const R = 5; // nominal radius for 18px icon
 const GRID = 3;
@@ -366,6 +367,34 @@ function settingsPoints(): NavShapePoint[] {
   return buildIcon(skeleton, signal, 'settings');
 }
 
+/** Refresh/sync: two broken arcs with arrow tips. */
+function syncPoints(): NavShapePoint[] {
+  const r = R * 0.85;
+  const upper: NavShapePoint[] = [];
+  const lower: NavShapePoint[] = [];
+  for (let i = 0; i <= 6; i++) {
+    const a = Math.PI * 1.25 - (i / 6) * Math.PI * 0.9;
+    upper.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, alpha: 0.9 });
+  }
+  for (let i = 0; i <= 6; i++) {
+    const a = Math.PI * 0.25 - (i / 6) * Math.PI * 0.9;
+    lower.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, alpha: 0.9 });
+  }
+  const tipU = upper[upper.length - 1];
+  const tipL = lower[lower.length - 1];
+  const arrowU: NavShapePoint[] = [
+    { x: tipU.x - 1.5, y: tipU.y, alpha: 0.8 },
+    { x: tipU.x, y: tipU.y + 1.5, alpha: 0.8 },
+  ];
+  const arrowL: NavShapePoint[] = [
+    { x: tipL.x + 1.5, y: tipL.y, alpha: 0.8 },
+    { x: tipL.x, y: tipL.y - 1.5, alpha: 0.8 },
+  ];
+  const skeleton = merge(upper, lower, arrowU, arrowL);
+  const signal = anchor(undefined, 0.6);
+  return buildIcon(skeleton, signal, 'sync');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
@@ -382,6 +411,7 @@ const SHAPE_MAP: Record<ParticleNavShapeKey, () => NavShapePoint[]> = {
   updates: updatesPoints,
   spam: spamPoints,
   settings: settingsPoints,
+  sync: syncPoints,
 };
 
 export function getNavShape(key: ParticleNavShapeKey): NavShapePoint[] {

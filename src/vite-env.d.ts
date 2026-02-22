@@ -61,6 +61,59 @@ interface ElectronAPI {
   sync?: {
     onStatus: (callback: (status: SyncStatus) => void) => () => void;
   };
+  search?: {
+    isConfigured: () => Promise<boolean>;
+    keyword: (accountIds: string[], query: string, limit?: number, category?: string) => Promise<SearchResult[]>;
+    semantic: (accountIds: string[], query: string, limit?: number, category?: string) => Promise<SearchResult[]>;
+    hybrid: (accountIds: string[], query: string, limit?: number, category?: string) => Promise<SearchResult[]>;
+  };
+  subscription?: {
+    overview: (accountIds: string[]) => Promise<SubscriptionOverviewItem[]>;
+    timeline: (accountId: string, fingerprint?: string, bucketDays?: number) => Promise<{ bucketStart: number; count: number }[]>;
+  };
+  indexing?: {
+    isConfigured: () => Promise<boolean>;
+    setEmbedderApiKey: (key: string | null) => Promise<void>;
+    reindexAccount: (accountId: string) => Promise<{ indexed: number; failed: number }>;
+    purgeAccount: (accountId: string) => Promise<void>;
+    getMetrics: () => Promise<IndexingMetrics>;
+  };
+}
+
+export interface IndexingMetrics {
+  lastIngestionStartTime: number | null;
+  lastIngestionEndTime: number | null;
+  lastEmbedLatencyMs: number | null;
+  indexSuccessTotal: number;
+  indexFailureTotal: number;
+  lastKeywordQueryLatencyMs: number | null;
+  lastSemanticQueryLatencyMs: number | null;
+  keywordQueryCount: number;
+  semanticQueryCount: number;
+}
+
+export interface SearchResult {
+  chunkId: string;
+  messageId: string;
+  threadId: string;
+  accountId: string;
+  subject: string;
+  from: string;
+  snippet: string;
+  internalDate: number;
+  category: string;
+  score: number;
+  explanation?: string;
+}
+
+export interface SubscriptionOverviewItem {
+  senderDomain: string;
+  senderName?: string;
+  fingerprint: string;
+  messageCount: number;
+  firstSeen: number;
+  lastSeen: number;
+  category: string;
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'up-to-date' | 'error';
