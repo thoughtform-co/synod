@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchThreadsByView, type ThreadSummary, type MailView } from '../mailRepository';
+import { useSyncStatus } from '../useSyncStatus';
 
 const VIEW_TITLES: Record<string, string> = {
   INBOX: 'Inbox',
@@ -33,6 +34,8 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const syncStatus = useSyncStatus();
+  const prevSyncStatus = useRef(syncStatus);
 
   const removedSet = removedThreadIds.length > 0 ? new Set(removedThreadIds) : null;
   const visibleThreads = removedSet ? threads.filter((t) => !removedSet.has(t.id)) : threads;
@@ -59,6 +62,17 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
     return () => controller.abort();
   }, [activeAccountId, mailView.type, mailView.type === 'label' ? mailView.labelId : mailView.query]);
 
+  // Refetch list when sync becomes up-to-date so UI shows background updates.
+  useEffect(() => {
+    if (prevSyncStatus.current !== 'up-to-date' && syncStatus === 'up-to-date' && activeAccountId !== undefined) {
+      fetchThreadsByView(activeAccountId ?? undefined, mailView, PAGE_SIZE).then(({ threads: list, nextPageToken: token }) => {
+        setThreads(list);
+        setNextPageToken(token);
+      });
+    }
+    prevSyncStatus.current = syncStatus;
+  }, [syncStatus, activeAccountId, mailView]);
+
   const loadMore = () => {
     if (!nextPageToken || loadingMore) return;
     setLoadingMore(true);
@@ -82,6 +96,8 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
     <div className="thread-list">
       <header className="thread-list__header">
         <h2 className="thread-list__title">{viewTitle(mailView)}</h2>
+        {syncStatus === 'syncing' && <span className="thread-list__sync-status" aria-live="polite">Syncing…</span>}
+        {syncStatus === 'up-to-date' && <span className="thread-list__sync-status thread-list__sync-status--ok" aria-live="polite">Synced</span>}
       </header>
       {loading ? (
         <div className="thread-list__loading">Loading…</div>

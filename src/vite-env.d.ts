@@ -56,7 +56,12 @@ interface ElectronAPI {
     maximize: () => Promise<void>;
     close: () => Promise<void>;
   };
+  sync?: {
+    onStatus: (callback: (status: SyncStatus) => void) => () => void;
+  };
 }
+
+export type SyncStatus = 'idle' | 'syncing' | 'up-to-date' | 'error';
 
 export interface CalendarEvent {
   id: string;

@@ -105,6 +105,58 @@ async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds
   return map;
 }
 
+/** Thrown when startHistoryId is expired; caller should run full sync. */
+export class HistoryIdExpiredError extends Error {
+  constructor() {
+    super('Gmail historyId expired');
+    this.name = 'HistoryIdExpiredError';
+  }
+}
+
+export interface HistoryRecord {
+  id?: string;
+  messages?: { id?: string; threadId?: string; labelIds?: string[] }[];
+  messagesAdded?: { message?: { id?: string; threadId?: string; labelIds?: string[] } }[];
+  messagesDeleted?: { message?: { id?: string; threadId?: string } }[];
+  labelsAdded?: { message?: { id?: string; threadId?: string }; labelIds?: string[] }[];
+  labelsRemoved?: { message?: { id?: string; threadId?: string }; labelIds?: string[] }[];
+}
+
+export interface FetchHistoryResult {
+  historyId: string;
+  history: HistoryRecord[];
+  nextPageToken?: string;
+}
+
+/** Fetch history after startHistoryId. Throws HistoryIdExpiredError on 404. */
+export async function fetchHistory(
+  accountId: string | undefined,
+  startHistoryId: string,
+  maxResults?: number,
+  pageToken?: string
+): Promise<FetchHistoryResult> {
+  const gmail = getGmailClient(accountId);
+  try {
+    const res = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId,
+      maxResults: maxResults ?? 100,
+      pageToken: pageToken || undefined,
+    });
+    const history = (res.data.history || []) as HistoryRecord[];
+    const historyId = res.data.historyId ? String(res.data.historyId) : startHistoryId;
+    return {
+      historyId,
+      history,
+      nextPageToken: res.data.nextPageToken || undefined,
+    };
+  } catch (err: unknown) {
+    const code = (err as { code?: number })?.code;
+    if (code === 404) throw new HistoryIdExpiredError();
+    throw err;
+  }
+}
+
 export async function listThreads(accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string): Promise<ListThreadsResult> {
   return withRetry(async () => {
     const gmail = getGmailClient(accountId);
@@ -188,7 +240,7 @@ function extractBodies(part: GmailPart | undefined): { plain: string; html: stri
   return { plain, html };
 }
 
-export function getThread(accountId: string | undefined, threadId: string): Promise<{ id: string; messages: GmailMessage[] }> {
+export function getThread(accountId: string | undefined, threadId: string): Promise<{ id: string; snippet?: string; historyId?: string; messages: GmailMessage[] }> {
   return withRetry(() => {
     const gmail = getGmailClient(accountId);
     return gmail.users.threads
@@ -259,7 +311,12 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
           bodyPlain: keepHtml[i] ? undefined : (keepPlain[i] ? clippedPlain : undefined),
         };
       });
-      return { id: thread.id!, messages };
+      return {
+        id: thread.id!,
+        snippet: thread.snippet ?? undefined,
+        historyId: thread.historyId ? String(thread.historyId) : undefined,
+        messages,
+      };
     });
   });
 }

@@ -81,6 +81,10 @@ export async function fetchInboxThreads(
 
 export type MailView = { type: 'label'; labelId: string } | { type: 'query'; query: string };
 
+/**
+ * Fetch thread list for the current view. Served local-first from SQLite (IPC);
+ * refetch when sync status is 'up-to-date' to show background updates.
+ */
 export async function fetchThreadsByView(
   accountId: string | undefined,
   view: MailView,
@@ -113,6 +117,10 @@ export interface ThreadDetail {
   messages: ThreadMessage[];
 }
 
+/**
+ * Fetch one thread. Served from in-memory cache or SQLite first (IPC); refetch on
+ * sync 'up-to-date' to show background updates. LRU cache is L1 on top of SQLite L2.
+ */
 export async function fetchThread(accountId: string | undefined, threadId: string): Promise<ThreadDetail | null> {
   const gmail = getGmailAPI();
   if (!gmail) return null;

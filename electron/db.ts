@@ -42,6 +42,50 @@ export function initDb(): void {
   runMigrations(db);
 }
 
+/** Mail cache tables (migration v2). Thread and message data for local-first UI. */
+function createMailCacheTables(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS threads (
+      account_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      snippet TEXT NOT NULL DEFAULT '',
+      subject TEXT,
+      from_name TEXT,
+      history_id TEXT,
+      label_ids TEXT,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (account_id, thread_id),
+      FOREIGN KEY (account_id) REFERENCES accounts(id)
+    );
+    CREATE TABLE IF NOT EXISTS messages (
+      account_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      from_addr TEXT,
+      to_addr TEXT,
+      subject TEXT,
+      date TEXT,
+      snippet TEXT,
+      body_plain TEXT,
+      body_html TEXT,
+      label_ids TEXT,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (account_id, message_id),
+      FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, thread_id)
+    );
+    CREATE TABLE IF NOT EXISTS thread_labels (
+      account_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      label_id TEXT NOT NULL,
+      PRIMARY KEY (account_id, thread_id, label_id),
+      FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, thread_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_threads_account_updated ON threads(account_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_thread_labels_account_label ON thread_labels(account_id, label_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(account_id, thread_id);
+  `);
+}
+
 const SCHEMA_VERSION_KEY = 'schema_version';
 
 function getSchemaVersion(db: Database.Database): number {
@@ -57,10 +101,15 @@ function setSchemaVersion(db: Database.Database, version: number): void {
 
 /** Versioned migrations. Add new migrations when schema changes. */
 function runMigrations(db: Database.Database): void {
-  const v = getSchemaVersion(db);
+  let v = getSchemaVersion(db);
   if (v < 1) {
     migrateLegacyAccount(db);
     setSchemaVersion(db, 1);
+    v = 1;
+  }
+  if (v < 2) {
+    createMailCacheTables(db);
+    setSchemaVersion(db, 2);
   }
 }
 

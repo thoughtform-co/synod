@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { Check, ChevronRight, Clock, ListTodo, Trash2 } from 'lucide-react';
 import { fetchThread, getThreadFromCache, doneThread, deleteThread, type ThreadDetail, type ThreadMessage } from '../mailRepository';
+import { useSyncStatus } from '../useSyncStatus';
 import { recordThreadCacheHit, recordThreadFetchDurationMs } from '@/lib/metrics';
 import { formatEmailDate } from '../utils';
 import { ReplyComposer } from './ReplyComposer';
@@ -82,6 +83,8 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
   const [actionPending, setActionPending] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
+  const syncStatus = useSyncStatus();
+  const prevSyncStatus = useRef(syncStatus);
 
   useEffect(() => {
     if (activeAccountId === undefined) return;
@@ -122,6 +125,16 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
       });
     return () => controller.abort();
   }, [activeAccountId, threadId]);
+
+  // Refetch thread when sync becomes up-to-date so UI shows background updates.
+  useEffect(() => {
+    if (prevSyncStatus.current !== 'up-to-date' && syncStatus === 'up-to-date' && activeAccountId !== undefined) {
+      fetchThread(activeAccountId ?? undefined, threadId).then((t) => {
+        if (t) setThread(t);
+      });
+    }
+    prevSyncStatus.current = syncStatus;
+  }, [syncStatus, activeAccountId, threadId]);
 
   const msgRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const registerMsgRef = useCallback((id: string, el: HTMLDivElement | null) => {

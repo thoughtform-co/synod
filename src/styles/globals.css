@@ -844,6 +844,9 @@ body {
 
 .thread-list__header {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--dawn-08);
 }
@@ -852,6 +855,16 @@ body {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--dawn-70);
+}
+
+.thread-list__sync-status {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  color: var(--dawn-40);
+}
+
+.thread-list__sync-status--ok {
+  color: var(--dawn-50);
 }
 
 .thread-list__items {

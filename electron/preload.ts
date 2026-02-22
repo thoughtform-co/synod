@@ -48,4 +48,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
   },
+  sync: {
+    onStatus: (callback: (status: string) => void) => {
+      const fn = (_: unknown, status: string) => callback(status);
+      ipcRenderer.on('sync:status', fn);
+      return () => {
+        ipcRenderer.removeListener('sync:status', fn);
+      };
+    },
+  },
 });

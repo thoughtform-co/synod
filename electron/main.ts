@@ -4,6 +4,8 @@ import { initDb, getDb, getKv, setKv, deleteKv } from './db';
 import { migrateSecretsFromPlaintext } from './secretStorage';
 import { runOAuthFlow } from './oauth';
 import { listThreads, getThread, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
+import { getThreadListFromDb, getThreadFromDb } from './mailCache';
+import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
 import { listEvents, listEventsRange, respondToEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
 import { setupAutoUpdater } from './updater';
@@ -26,6 +28,12 @@ import {
   validateAccountsReorder,
   validateReminderMinutes,
 } from './ipcValidation';
+
+function getEffectiveAccountId(accountId: unknown): string | null {
+  if (typeof accountId === 'string' && accountId) return accountId;
+  const raw = getKv('active_account');
+  return raw ? (parseStoreGet({ value: raw }) as string) : null;
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -124,7 +132,11 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   initDb();
   migrateSecretsFromPlaintext();
+  startSyncEngine();
   createWindow();
+  onSyncStatus((status) => {
+    mainWindow?.webContents?.send('sync:status', status);
+  });
   startReminderEngine();
   setupAutoUpdater();
   app.on('activate', () => {
@@ -133,6 +145,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopSyncEngine();
   const db = getDb();
   if (db) db.close();
   if (process.platform !== 'darwin') app.quit();
@@ -157,14 +170,36 @@ ipcMain.handle('oauth:start', (_event, payload: unknown) => {
 
 ipcMain.handle(
   'gmail:listThreads',
-  (_event, accountId: unknown, labelId: unknown, maxResults: unknown, pageToken?: unknown) => {
+  async (_event, accountId: unknown, labelId: unknown, maxResults: unknown, pageToken?: unknown) => {
     if (!validateGmailListArgs(accountId, labelId, maxResults, pageToken)) throw new Error('Invalid gmail:listThreads args');
-    return listThreads(accountId as string | undefined, labelId as string, maxResults as number, pageToken as string | undefined);
+    const effectiveId = getEffectiveAccountId(accountId);
+    if (effectiveId) {
+      const cached = getThreadListFromDb(effectiveId, labelId as string, maxResults as number);
+      if (cached.length > 0) {
+        return { threads: cached, nextPageToken: undefined };
+      }
+    }
+    const result = await listThreads(accountId as string | undefined, labelId as string, maxResults as number, pageToken as string | undefined);
+    if (effectiveId && result.threads.length > 0) {
+      persistThreads(effectiveId, result.threads, labelId as string);
+    }
+    return result;
   }
 );
-ipcMain.handle('gmail:getThread', (_event, accountId: unknown, threadId: unknown) => {
+ipcMain.handle('gmail:getThread', async (_event, accountId: unknown, threadId: unknown) => {
   if (!validateGmailGetThreadArgs(accountId, threadId)) throw new Error('Invalid gmail:getThread args');
-  return getThread(accountId as string | undefined, threadId as string);
+  const effectiveId = getEffectiveAccountId(accountId);
+  if (effectiveId) {
+    const cached = getThreadFromDb(effectiveId, threadId as string);
+    if (cached && cached.messages.length > 0) {
+      return cached;
+    }
+  }
+  const result = await getThread(accountId as string | undefined, threadId as string);
+  if (effectiveId) {
+    persistThreadFromApi(effectiveId, result);
+  }
+  return result;
 });
 ipcMain.handle('gmail:sendReply', (_event, accountId: unknown, threadId: unknown, bodyText: unknown) => {
   if (!validateGmailSendReplyArgs(accountId, threadId, bodyText)) throw new Error('Invalid gmail:sendReply args');
