@@ -113,6 +113,8 @@ export const ReplyComposer = forwardRef<HTMLTextAreaElement | null, ReplyCompose
     setUndoCountdown(0);
   }, []);
 
+  const hasText = body.trim().length > 0;
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Escape' && (hasText || attachments.length > 0) && undoCountdown === 0) {
       e.preventDefault();
@@ -153,8 +155,6 @@ export const ReplyComposer = forwardRef<HTMLTextAreaElement | null, ReplyCompose
   const removeAttachment = useCallback((index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }, []);
-
-  const hasText = body.trim().length > 0;
 
   const handleSendLater = useCallback(() => {
     // Stub: future scheduled send
