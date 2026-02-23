@@ -86,6 +86,12 @@ export function validateGmailGetThreadArgs(accountId: unknown, threadId: unknown
 
 const MAX_MESSAGE_ID_LEN = 128;
 const MAX_ATTACHMENT_ID_LEN = 256;
+const MAX_DRAFT_ID_LEN = 128;
+const MAX_EMAIL_HEADER_LEN = 2048;
+const MAX_ATTACHMENTS = 20;
+const MAX_ATTACHMENT_B64_LEN = 25 * 1024 * 1024; // ~25MB per attachment
+const MAX_FILENAME_LEN = 256;
+const MAX_MIMETYPE_LEN = 128;
 
 export function validateGmailGetAttachmentArgs(
   accountId: unknown,
@@ -98,9 +104,102 @@ export function validateGmailGetAttachmentArgs(
   return true;
 }
 
-export function validateGmailSendReplyArgs(accountId: unknown, threadId: unknown, bodyText: unknown): boolean {
+export function validateOutgoingAttachment(a: unknown): a is { filename: string; mimeType: string; dataBase64: string } {
+  if (!a || typeof a !== 'object') return false;
+  const o = a as Record<string, unknown>;
+  return (
+    typeof o.filename === 'string' &&
+    o.filename.length > 0 &&
+    o.filename.length <= MAX_FILENAME_LEN &&
+    typeof o.mimeType === 'string' &&
+    o.mimeType.length > 0 &&
+    o.mimeType.length <= MAX_MIMETYPE_LEN &&
+    typeof o.dataBase64 === 'string' &&
+    o.dataBase64.length <= MAX_ATTACHMENT_B64_LEN
+  );
+}
+
+export function validateOutgoingAttachments(attachments: unknown): attachments is { filename: string; mimeType: string; dataBase64: string }[] {
+  if (attachments === undefined || attachments === null) return true;
+  if (!Array.isArray(attachments) || attachments.length > MAX_ATTACHMENTS) return false;
+  return attachments.every(validateOutgoingAttachment);
+}
+
+export function validateGmailSendReplyArgs(
+  accountId: unknown,
+  threadId: unknown,
+  bodyText: unknown,
+  attachments?: unknown
+): boolean {
   if (!optionalAccountId(accountId) || !validateThreadId(threadId)) return false;
-  return typeof bodyText === 'string' && bodyText.length <= MAX_BODY_TEXT_LEN;
+  if (typeof bodyText !== 'string' || bodyText.length > MAX_BODY_TEXT_LEN) return false;
+  return validateOutgoingAttachments(attachments);
+}
+
+export function validateGmailCreateDraftArgs(
+  accountId: unknown,
+  to: unknown,
+  cc: unknown,
+  bcc: unknown,
+  subject: unknown,
+  bodyText: unknown,
+  attachments?: unknown
+): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (typeof to !== 'string' || to.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof cc !== 'string' || cc.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof bcc !== 'string' || bcc.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof subject !== 'string' || subject.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof bodyText !== 'string' || bodyText.length > MAX_BODY_TEXT_LEN) return false;
+  return validateOutgoingAttachments(attachments);
+}
+
+export function validateGmailUpdateDraftArgs(
+  accountId: unknown,
+  draftId: unknown,
+  to: unknown,
+  cc: unknown,
+  bcc: unknown,
+  subject: unknown,
+  bodyText: unknown,
+  attachments?: unknown
+): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (typeof draftId !== 'string' || draftId.length === 0 || draftId.length > MAX_DRAFT_ID_LEN) return false;
+  if (typeof to !== 'string' || to.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof cc !== 'string' || cc.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof bcc !== 'string' || bcc.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof subject !== 'string' || subject.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof bodyText !== 'string' || bodyText.length > MAX_BODY_TEXT_LEN) return false;
+  return validateOutgoingAttachments(attachments);
+}
+
+export function validateGmailDeleteDraftArgs(accountId: unknown, draftId: unknown): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  return typeof draftId === 'string' && draftId.length > 0 && draftId.length <= MAX_DRAFT_ID_LEN;
+}
+
+export function validateGmailSendDraftArgs(accountId: unknown, draftId: unknown): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  return typeof draftId === 'string' && draftId.length > 0 && draftId.length <= MAX_DRAFT_ID_LEN;
+}
+
+export function validateGmailSendNewMessageArgs(
+  accountId: unknown,
+  to: unknown,
+  cc: unknown,
+  bcc: unknown,
+  subject: unknown,
+  bodyText: unknown,
+  attachments?: unknown
+): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (typeof to !== 'string' || to.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof cc !== 'string' || cc.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof bcc !== 'string' || bcc.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof subject !== 'string' || subject.length > MAX_EMAIL_HEADER_LEN) return false;
+  if (typeof bodyText !== 'string' || bodyText.length > MAX_BODY_TEXT_LEN) return false;
+  return validateOutgoingAttachments(attachments);
 }
 
 export function validateGmailModifyLabelsArgs(

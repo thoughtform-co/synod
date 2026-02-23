@@ -51,6 +51,7 @@ export interface ThreadSummary {
   snippet: string;
   subject?: string;
   from?: string;
+  fromEmail?: string;
   historyId?: string;
   internalDate?: number;
   messages?: { id: string; labelIds?: string[] }[];
@@ -69,13 +70,20 @@ function parseFromName(raw: string | undefined): string | undefined {
   return raw.trim();
 }
 
-async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds: string[]): Promise<Map<string, { subject?: string; from?: string; snippet?: string; internalDate?: number }>> {
-  const map = new Map<string, { subject?: string; from?: string; snippet?: string; internalDate?: number }>();
+function parseFromEmail(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const match = raw.match(/<([^>]+)>/);
+  if (match) return match[1].trim().toLowerCase();
+  if (raw.includes('@')) return raw.trim().toLowerCase();
+  return undefined;
+}
+
+async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds: string[]): Promise<Map<string, { subject?: string; from?: string; fromEmail?: string; snippet?: string; internalDate?: number }>> {
+  const map = new Map<string, { subject?: string; from?: string; fromEmail?: string; snippet?: string; internalDate?: number }>();
   if (threadIds.length === 0) return map;
   try {
     const results = await Promise.allSettled(
       threadIds.map((id) =>
-        // Format and metadataHeaders are valid but not in the minimal type
         gmail.users.threads.get({
           userId: 'me',
           id,
@@ -94,14 +102,15 @@ async function enrichThreads(gmail: ReturnType<typeof getGmailClient>, threadIds
         const dates = msgs.map((m) => (m.internalDate != null ? parseInt(String(m.internalDate), 10) : NaN)).filter(Number.isFinite);
         if (dates.length > 0) internalDate = Math.max(...dates);
       }
-      const firstMsg = msgs[0];
-      const rawH = (firstMsg as { payload?: { headers?: { name?: string; value?: string }[] } })?.payload?.headers || [];
+      const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+      const rawH = (lastMsg as { payload?: { headers?: { name?: string; value?: string }[] } })?.payload?.headers || [];
       const headers = rawH.map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
       const subj = getHeader(headers, 'Subject');
       const from = getHeader(headers, 'From');
       map.set(data.id, {
         subject: subj || undefined,
         from: parseFromName(from || undefined),
+        fromEmail: parseFromEmail(from || undefined),
         snippet: data.snippet || undefined,
         internalDate,
       });
@@ -182,6 +191,7 @@ export async function listThreads(accountId: string | undefined, labelId: string
         snippet: m?.snippet || t.snippet || '',
         subject: m?.subject,
         from: m?.from,
+        fromEmail: m?.fromEmail,
         historyId: t.historyId ? String(t.historyId) : undefined,
         internalDate: m?.internalDate,
       };
@@ -217,6 +227,8 @@ export interface GmailMessage {
   bodyPlain?: string;
   bodyHtml?: string;
   attachments?: GmailAttachment[];
+  /** Extracted text/calendar or application/ics body for invite messages. */
+  calendarIcs?: string;
   payload?: {
     mimeType?: string;
   };
@@ -279,6 +291,21 @@ function extractBodies(part: GmailPart | undefined): { plain: string; html: stri
   return { plain, html };
 }
 
+function extractCalendarIcs(part: GmailPart | undefined): string | undefined {
+  if (!part) return undefined;
+  const mime = (part.mimeType ?? '').toLowerCase();
+  if ((mime === 'text/calendar' || mime === 'application/ics') && part.body?.data) {
+    return decodeBase64Url(part.body.data);
+  }
+  if (part.parts) {
+    for (const child of part.parts) {
+      const ics = extractCalendarIcs(child);
+      if (ics) return ics;
+    }
+  }
+  return undefined;
+}
+
 export function getThread(accountId: string | undefined, threadId: string): Promise<{ id: string; snippet?: string; historyId?: string; messages: GmailMessage[] }> {
   return withRetry(() => {
     const gmail = getGmailClient(accountId);
@@ -295,6 +322,7 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
         const headers = (p?.headers || []).map((h) => ({ name: h.name ?? '', value: h.value ?? '' }));
         const { plain, html } = extractBodies(p as GmailPart);
         const attachments = extractAttachments(p as GmailPart);
+        const calendarIcs = extractCalendarIcs(p as GmailPart);
         const internalDateRaw = (m as { internalDate?: string }).internalDate;
         const internalDate = internalDateRaw != null ? parseInt(String(internalDateRaw), 10) : undefined;
         return {
@@ -310,6 +338,7 @@ export function getThread(accountId: string | undefined, threadId: string): Prom
           bodyPlain: plain || undefined,
           bodyHtml: html || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
+          calendarIcs: calendarIcs || undefined,
           payload: p
             ? {
                 mimeType: p.mimeType ?? undefined,
@@ -397,6 +426,198 @@ function base64UrlEncode(str: string): string {
     .replace(/=+$/, '');
 }
 
+/** Outgoing attachment: base64url-encoded data (from FileReader or similar). */
+export interface OutgoingAttachment {
+  filename: string;
+  mimeType: string;
+  dataBase64: string;
+}
+
+const MIME_BOUNDARY_PREFIX = 'synod_';
+function randomBoundary(): string {
+  const r = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return MIME_BOUNDARY_PREFIX + Buffer.from(r, 'utf-8').toString('base64').replace(/\+|\//g, 'x').slice(0, 24);
+}
+
+function escapeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, ' ').trim();
+}
+
+/**
+ * Build RFC 2822 MIME message. Uses multipart/mixed when attachments are present.
+ * Body is plain text; line endings normalized to CRLF.
+ */
+export function buildMimeMessage(
+  from: string,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments: OutgoingAttachment[] = []
+): string {
+  const normalizedBody = bodyText.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+  const fromLine = `From: ${escapeHeaderValue(from)}`;
+  const toLine = to ? `To: ${escapeHeaderValue(to)}` : '';
+  const ccLine = cc ? `Cc: ${escapeHeaderValue(cc)}` : '';
+  const bccLine = bcc ? `Bcc: ${escapeHeaderValue(bcc)}` : '';
+  const subjectLine = `Subject: ${escapeHeaderValue(subject)}`;
+  const mimeVersion = 'MIME-Version: 1.0';
+
+  if (attachments.length === 0) {
+    const lines = [
+      fromLine,
+      toLine,
+      ccLine,
+      bccLine,
+      subjectLine,
+      mimeVersion,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      normalizedBody,
+    ].filter(Boolean);
+    return lines.join('\r\n');
+  }
+
+  const boundary = randomBoundary();
+  const lines: string[] = [
+    fromLine,
+    toLine,
+    ccLine,
+    bccLine,
+    subjectLine,
+    mimeVersion,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    normalizedBody,
+  ].filter(Boolean);
+
+  for (const att of attachments) {
+    const safeName = att.filename.replace(/["\\]/g, '\\$&');
+    lines.push(
+      '',
+      `--${boundary}`,
+      `Content-Type: ${att.mimeType}; name="${safeName}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${safeName}"`,
+      '',
+      att.dataBase64
+    );
+  }
+  lines.push('', `--${boundary}--`, '');
+  return lines.join('\r\n');
+}
+
+/** Create a draft. Returns { id, messageId } (draft id and message id). */
+export function createDraft(
+  accountId: string | undefined,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments: OutgoingAttachment[] = []
+): Promise<{ id: string; messageId: string }> {
+  return withRetry(() => {
+    const db = getDb();
+    if (!db) throw new Error('Database not initialized');
+    const from = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
+    if (!from) throw new Error('No account');
+    const raw = buildMimeMessage(from, to, cc, bcc, subject, bodyText, attachments);
+    const rawB64 = base64UrlEncode(raw);
+    const gmail = getGmailClient(accountId);
+    return gmail.users.drafts
+      .create({
+        userId: 'me',
+        requestBody: { message: { raw: rawB64 } },
+      })
+      .then((res) => ({
+        id: res.data.id!,
+        messageId: res.data.message?.id ?? '',
+      }));
+  });
+}
+
+/** Update an existing draft. */
+export function updateDraft(
+  accountId: string | undefined,
+  draftId: string,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments: OutgoingAttachment[] = []
+): Promise<void> {
+  return withRetry(() => {
+    const db = getDb();
+    if (!db) throw new Error('Database not initialized');
+    const from = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
+    if (!from) throw new Error('No account');
+    const raw = buildMimeMessage(from, to, cc, bcc, subject, bodyText, attachments);
+    const rawB64 = base64UrlEncode(raw);
+    const gmail = getGmailClient(accountId);
+    return gmail.users.drafts
+      .update({
+        userId: 'me',
+        id: draftId,
+        requestBody: { message: { raw: rawB64 } },
+      })
+      .then(() => undefined);
+  });
+}
+
+/** Delete a draft. */
+export function deleteDraft(accountId: string | undefined, draftId: string): Promise<void> {
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.drafts.delete({ userId: 'me', id: draftId }).then(() => undefined);
+  });
+}
+
+/** Send an existing draft. Returns the sent message id. */
+export function sendDraft(accountId: string | undefined, draftId: string): Promise<{ id: string }> {
+  return withRetry(() => {
+    const gmail = getGmailClient(accountId);
+    return gmail.users.drafts
+      .send({
+        userId: 'me',
+        requestBody: { id: draftId },
+      })
+      .then((res) => ({ id: res.data.id! }));
+  });
+}
+
+/** Send a new message (no thread). Uses buildMimeMessage and messages.send. */
+export function sendNewMessage(
+  accountId: string | undefined,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments: OutgoingAttachment[] = []
+): Promise<{ id: string }> {
+  return withRetry(() => {
+    const db = getDb();
+    if (!db) throw new Error('Database not initialized');
+    const from = accountId && typeof accountId === 'string' ? accountId : getActiveAccountId(db);
+    if (!from) throw new Error('No account');
+    const raw = buildMimeMessage(from, to, cc, bcc, subject, bodyText, attachments);
+    const rawB64 = base64UrlEncode(raw);
+    const gmail = getGmailClient(accountId);
+    return gmail.users.messages
+      .send({
+        userId: 'me',
+        requestBody: { raw: rawB64 },
+      })
+      .then((res) => ({ id: res.data.id! }));
+  });
+}
+
 export function sendReply(accountId: string | undefined, threadId: string, rawMessage: string): Promise<{ id: string }> {
   const gmail = getGmailClient(accountId);
   return gmail.users.messages
@@ -410,7 +631,12 @@ export function sendReply(accountId: string | undefined, threadId: string, rawMe
     .then((res) => ({ id: res.data.id! }));
 }
 
-export function buildAndSendReply(accountId: string | undefined, threadId: string, bodyText: string): Promise<{ id: string }> {
+export function buildAndSendReply(
+  accountId: string | undefined,
+  threadId: string,
+  bodyText: string,
+  attachments: OutgoingAttachment[] = []
+): Promise<{ id: string }> {
   return withRetry(() => {
     const gmail = getGmailClient(accountId);
     const db = getDb();
@@ -437,16 +663,19 @@ export function buildAndSendReply(accountId: string | undefined, threadId: strin
         const subject = getHeader(headers, 'Subject') || '';
         const reSubject = subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`;
 
-        const lines = [
-          `From: ${fromEmail}`,
-          `To: ${replyTo}`,
-          `Subject: ${reSubject}`,
-          'Content-Type: text/plain; charset=utf-8',
-          'MIME-Version: 1.0',
-          '',
-          bodyText.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'),
-        ];
-        const raw = base64UrlEncode(lines.join('\r\n'));
+        const rawMime =
+          attachments.length > 0
+            ? buildMimeMessage(fromEmail, replyTo, '', '', reSubject, bodyText, attachments)
+            : [
+                `From: ${fromEmail}`,
+                `To: ${replyTo}`,
+                `Subject: ${reSubject}`,
+                'Content-Type: text/plain; charset=utf-8',
+                'MIME-Version: 1.0',
+                '',
+                bodyText.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'),
+              ].join('\r\n');
+        const raw = base64UrlEncode(rawMime);
         return sendReply(accountId, threadId, raw);
       });
   });
@@ -521,6 +750,7 @@ export async function searchThreads(
         snippet: m?.snippet || t.snippet || '',
         subject: m?.subject,
         from: m?.from,
+        fromEmail: m?.fromEmail,
         historyId: t.historyId ? String(t.historyId) : undefined,
         internalDate: m?.internalDate,
       };

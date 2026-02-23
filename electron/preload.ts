@@ -22,8 +22,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('gmail:getThread', accountId, threadId),
     getAttachment: (accountId: string | undefined, messageId: string, attachmentId: string) =>
       ipcRenderer.invoke('gmail:getAttachment', accountId, messageId, attachmentId),
-    sendReply: (accountId: string | undefined, threadId: string, bodyText: string) =>
-      ipcRenderer.invoke('gmail:sendReply', accountId, threadId, bodyText),
+    sendReply: (accountId: string | undefined, threadId: string, bodyText: string, attachments?: { filename: string; mimeType: string; dataBase64: string }[]) =>
+      ipcRenderer.invoke('gmail:sendReply', accountId, threadId, bodyText, attachments),
+    createDraft: (
+      accountId: string | undefined,
+      to: string,
+      cc: string,
+      bcc: string,
+      subject: string,
+      bodyText: string,
+      attachments?: { filename: string; mimeType: string; dataBase64: string }[]
+    ) => ipcRenderer.invoke('gmail:createDraft', accountId, to, cc, bcc, subject, bodyText, attachments),
+    updateDraft: (
+      accountId: string | undefined,
+      draftId: string,
+      to: string,
+      cc: string,
+      bcc: string,
+      subject: string,
+      bodyText: string,
+      attachments?: { filename: string; mimeType: string; dataBase64: string }[]
+    ) => ipcRenderer.invoke('gmail:updateDraft', accountId, draftId, to, cc, bcc, subject, bodyText, attachments),
+    deleteDraft: (accountId: string | undefined, draftId: string) =>
+      ipcRenderer.invoke('gmail:deleteDraft', accountId, draftId),
+    sendDraft: (accountId: string | undefined, draftId: string) =>
+      ipcRenderer.invoke('gmail:sendDraft', accountId, draftId),
+    sendNewMessage: (
+      accountId: string | undefined,
+      to: string,
+      cc: string,
+      bcc: string,
+      subject: string,
+      bodyText: string,
+      attachments?: { filename: string; mimeType: string; dataBase64: string }[]
+    ) => ipcRenderer.invoke('gmail:sendNewMessage', accountId, to, cc, bcc, subject, bodyText, attachments),
     getLabelIds: () => ipcRenderer.invoke('gmail:getLabelIds'),
     modifyLabels: (accountId: string | undefined, threadId: string, addLabelIds: string[], removeLabelIds: string[]) =>
       ipcRenderer.invoke('gmail:modifyLabels', accountId, threadId, addLabelIds, removeLabelIds),

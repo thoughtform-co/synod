@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Search, ChevronDown } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { Search, ChevronDown, X } from 'lucide-react';
 import type { SearchResult, LocalSearchResult } from '@/vite-env';
 
 type SearchMode = 'keyword' | 'semantic' | 'hybrid';
@@ -7,6 +7,10 @@ const MODE_LABELS: Record<SearchMode, string> = { keyword: 'Fast', semantic: 'AI
 const MODES: SearchMode[] = ['keyword', 'semantic', 'hybrid'];
 const CATEGORIES = ['main', 'subscription', 'promotion', 'social', 'update', 'transactional', 'other'] as const;
 const CAT_LABELS: Record<string, string> = { '': 'All', main: 'Main', subscription: 'Subs', promotion: 'Promo', social: 'Social', update: 'Updates', transactional: 'Transact.', other: 'Other' };
+
+export interface MailSearchHandle {
+  focus: () => void;
+}
 
 interface MailSearchProps {
   activeAccountId: string | null;
@@ -25,7 +29,10 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () =
   }, [ref, handler]);
 }
 
-export function MailSearch({ activeAccountId, accountIds, onSelectThread, onLocalResults }: MailSearchProps) {
+export const MailSearch = forwardRef<MailSearchHandle, MailSearchProps>(function MailSearch(
+  { activeAccountId, accountIds, onLocalResults },
+  ref
+) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('keyword');
   const [category, setCategory] = useState<string>('');
@@ -38,8 +45,17 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread, onLoca
   const catRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+  }));
   useClickOutside(modeRef, () => setModeOpen(false));
   useClickOutside(catRef, () => setCatOpen(false));
+
+  const clearSearch = useCallback(() => {
+    setQuery('');
+    onLocalResults([]);
+    inputRef.current?.blur();
+  }, [onLocalResults]);
 
   const api = window.electronAPI?.search;
 
@@ -107,10 +123,20 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread, onLoca
           onChange={(e) => handleQueryChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') runCloudSearch();
-            if (e.key === 'Escape') { setQuery(''); onLocalResults([]); }
+            if (e.key === 'Escape') { clearSearch(); }
           }}
           aria-label="Search mail"
         />
+        {query.length > 0 && (
+          <button
+            type="button"
+            className="mail-search__clear"
+            onClick={(e) => { e.stopPropagation(); clearSearch(); }}
+            aria-label="Clear search"
+          >
+            <X size={14} strokeWidth={1.5} />
+          </button>
+        )}
         {loading && <span className="mail-search__spinner" />}
         {cloudConfigured && (
           <div className="mail-search__filters">
@@ -181,4 +207,4 @@ export function MailSearch({ activeAccountId, accountIds, onSelectThread, onLoca
       </div>
     </div>
   );
-}
+});

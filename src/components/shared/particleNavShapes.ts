@@ -23,7 +23,9 @@ export type ParticleNavShapeKey =
   | 'spam'
   | 'settings'
   | 'sync'
-  | 'embed';
+  | 'embed'
+  | 'reply'
+  | 'forward';
 
 const R = 5; // nominal radius for 18px icon
 const GRID = 3;
@@ -405,6 +407,40 @@ function embedPoints(): NavShapePoint[] {
   return buildIcon(skeleton, signal, 'embed');
 }
 
+/** Reply: curved arrow back (leftward arc + tip). Based on sent trajectory. */
+function replyPoints(): NavShapePoint[] {
+  const r = R * 0.9;
+  const arc: NavShapePoint[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI * 0.5 + (i / 8) * Math.PI * 0.85;
+    arc.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, alpha: 0.9 });
+  }
+  const tip = arc[arc.length - 1];
+  const skeleton = merge(
+    arc,
+    [{ x: tip.x - 1, y: tip.y, alpha: 0.9 }, { x: tip.x, y: tip.y + 1, alpha: 0.9 }, { x: tip.x + 0.5, y: tip.y - 0.5, alpha: 0.9 }]
+  );
+  const signal = anchor({ x: -r, y: 0 }, 1);
+  return buildIcon(skeleton, signal, 'reply');
+}
+
+/** Forward: curved arrow right (rightward arc + tip). Based on sent trajectory. */
+function forwardPoints(): NavShapePoint[] {
+  const r = R * 0.9;
+  const arc: NavShapePoint[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI * 0.5 - (i / 8) * Math.PI * 0.85;
+    arc.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, alpha: 0.9 });
+  }
+  const tip = arc[arc.length - 1];
+  const skeleton = merge(
+    arc,
+    [{ x: tip.x + 1, y: tip.y, alpha: 0.9 }, { x: tip.x, y: tip.y - 1, alpha: 0.9 }, { x: tip.x - 0.5, y: tip.y + 0.5, alpha: 0.9 }]
+  );
+  const signal = anchor({ x: r, y: 0 }, 1);
+  return buildIcon(skeleton, signal, 'forward');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
@@ -423,6 +459,8 @@ const SHAPE_MAP: Record<ParticleNavShapeKey, () => NavShapePoint[]> = {
   settings: settingsPoints,
   sync: syncPoints,
   embed: embedPoints,
+  reply: replyPoints,
+  forward: forwardPoints,
 };
 
 export function getNavShape(key: ParticleNavShapeKey): NavShapePoint[] {

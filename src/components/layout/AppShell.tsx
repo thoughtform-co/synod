@@ -5,6 +5,7 @@ import { MailSidebar } from '@/features/mail/components/MailSidebar';
 import { MailSearch } from '@/features/mail/components/MailSearch';
 import { ThreadList } from '@/features/mail/components/ThreadList';
 import { ThreadView } from '@/features/mail/components/ThreadView';
+import { ComposeView } from '@/features/mail/components/ComposeView';
 import { CalendarView } from '@/features/calendar/components/CalendarView';
 import { storeGet, storeSet } from '@/lib/db/sqlite';
 import type { AccountsListResult, LocalSearchResult } from '@/vite-env.d';
@@ -36,6 +37,8 @@ export function AppShell() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR);
   const [listWidth, setListWidth] = useState(DEFAULT_LIST);
   const [searchResults, setSearchResults] = useState<LocalSearchResult[]>([]);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [glitchThreadId, setGlitchThreadId] = useState<string | null>(null);
 
   const mailViewKey = mailView.type === 'label' ? mailView.labelId : mailView.query;
   useEffect(() => {
@@ -139,13 +142,60 @@ export function AppShell() {
 
   const activeAccountId = accountsResult?.activeId ?? null;
   const threadIdsRef = useRef<string[]>([]);
+  const searchRef = useRef<import('@/features/mail/components/MailSearch').MailSearchHandle>(null);
+
+  const accountsOrder = accountsResult?.accountsOrder ?? accountsResult?.accounts?.map((a) => a.id) ?? [];
+  const isEditableFocus = () => {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = (el as HTMLElement).tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return true;
+    if ((el as HTMLElement).getAttribute?.('contenteditable') === 'true') return true;
+    return false;
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey && !isEditableFocus()) {
+        e.preventDefault();
+        setActiveTab((t) => (t === 'mail' ? 'calendar' : 'mail'));
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key >= '1' && e.key <= '9') {
+        const i = e.key.charCodeAt(0) - 49;
+        if (accountsOrder[i]) {
+          e.preventDefault();
+          window.electronAPI?.accounts?.setActive(accountsOrder[i]).then(refreshAccounts);
+        }
+        return;
+      }
+      if (mod && e.key === 'e') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent('compose:send'));
+        return;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [accountsOrder, refreshAccounts]);
 
   const advancePastThread = useCallback((threadId: string) => {
     const ids = threadIdsRef.current;
     const idx = ids.indexOf(threadId);
     const nextId = idx >= 0 && idx < ids.length - 1 ? ids[idx + 1] : idx > 0 ? ids[idx - 1] : null;
-    setRemovedThreadIds((prev) => [...prev, threadId]);
-    setSelectedThreadId(nextId);
+    setGlitchThreadId(threadId);
+    setTimeout(() => {
+      setRemovedThreadIds((prev) => [...prev, threadId]);
+      setSelectedThreadId(nextId);
+      setGlitchThreadId(null);
+    }, 420);
   }, []);
 
   const handleIndexAccount = useCallback(async () => {
@@ -238,6 +288,7 @@ export function AppShell() {
               onOpenSettings={() => setSettingsOpen(true)}
               onAddAccount={handleAddAccount}
               onIndexAccount={handleIndexAccount}
+              onCompose={() => setComposeOpen(true)}
               refreshAccounts={refreshAccounts}
             />
           </aside>
@@ -253,6 +304,7 @@ export function AppShell() {
           />
           <section className="shell-mail__list">
             <MailSearch
+              ref={searchRef}
               activeAccountId={activeAccountId}
               accountIds={accountsResult?.accountsOrder ?? accountsResult?.accounts?.map((a) => a.id) ?? []}
               onSelectThread={setSelectedThreadId}
@@ -260,10 +312,13 @@ export function AppShell() {
             />
             <ThreadList
               activeAccountId={activeAccountId}
+              currentUserEmail={accountsResult?.accounts?.find((a) => a.id === activeAccountId)?.email ?? null}
               mailView={mailView}
               selectedThreadId={selectedThreadId}
               onSelectThread={setSelectedThreadId}
+              onViewChange={setMailView}
               removedThreadIds={removedThreadIds}
+              glitchThreadId={glitchThreadId}
               searchResults={searchResults}
               threadIdsRef={threadIdsRef}
             />
@@ -283,13 +338,17 @@ export function AppShell() {
               <ThreadView
                 threadId={selectedThreadId}
                 activeAccountId={activeAccountId}
-                currentUserEmail={activeAccountId}
+                currentUserEmail={accountsResult?.accounts?.find((a) => a.id === activeAccountId)?.email ?? null}
+                isDoneView={mailView.type === 'query' && mailView.query === '-in:inbox -in:spam -in:trash'}
                 onDone={advancePastThread}
                 onDelete={advancePastThread}
               />
             ) : (
               <div className="shell-mail__empty">
                 <p className="shell-mail__empty-text">Select a conversation</p>
+                <button type="button" className="shell-mail__empty-compose" onClick={() => setComposeOpen(true)}>
+                  New message
+                </button>
               </div>
             )}
           </main>

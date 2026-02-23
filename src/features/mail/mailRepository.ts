@@ -63,6 +63,7 @@ export interface ThreadSummary {
   snippet: string;
   subject?: string;
   from?: string;
+  fromEmail?: string;
   internalDate?: number;
 }
 
@@ -75,7 +76,7 @@ export async function fetchInboxThreads(
   if (!gmail) return { threads: [] };
   const { threads, nextPageToken } = await gmail.listThreads(accountId, 'INBOX', maxResults, pageToken);
   return {
-    threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, internalDate: t.internalDate })),
+    threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, fromEmail: t.fromEmail, internalDate: t.internalDate })),
     nextPageToken,
   };
 }
@@ -96,10 +97,13 @@ export async function fetchThreadsByView(
   if (!gmail) return { threads: [] };
   if (view.type === 'query') {
     const { threads, nextPageToken } = await gmail.searchThreads(accountId, view.query, maxResults, pageToken);
-    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, internalDate: t.internalDate })), nextPageToken };
+    if (view.query === 'has:invite') {
+      console.debug('[mail] Invites query returned', threads.length, 'threads');
+    }
+    return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, fromEmail: t.fromEmail, internalDate: t.internalDate })), nextPageToken };
   }
   const { threads, nextPageToken } = await gmail.listThreads(accountId, view.labelId, maxResults, pageToken);
-  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, internalDate: t.internalDate })), nextPageToken };
+  return { threads: threads.map((t) => ({ id: t.id, snippet: t.snippet, subject: t.subject, from: t.from, fromEmail: t.fromEmail, internalDate: t.internalDate })), nextPageToken };
 }
 
 export interface ThreadMessage {
@@ -112,6 +116,8 @@ export interface ThreadMessage {
   bodyHtml: string;
   snippet: string;
   attachments?: { filename: string; mimeType: string; size: number; attachmentId: string }[];
+  /** Extracted .ics / text/calendar for invite messages. */
+  calendarIcs?: string;
 }
 
 export interface ThreadDetail {
@@ -141,6 +147,7 @@ export async function fetchThread(accountId: string | undefined, threadId: strin
       bodyHtml: m.bodyHtml ? sanitizeHtml(m.bodyHtml) : '',
       snippet: m.snippet,
       attachments: m.attachments,
+      calendarIcs: m.calendarIcs,
     }));
     const thread: ThreadDetail = { id, messages: mappedMessages };
     pruneThreadCache();
@@ -158,12 +165,72 @@ export async function fetchThread(accountId: string | undefined, threadId: strin
   }
 }
 
-export async function sendReply(accountId: string | undefined, threadId: string, bodyText: string): Promise<{ id: string }> {
+export async function sendReply(
+  accountId: string | undefined,
+  threadId: string,
+  bodyText: string,
+  attachments?: import('@/vite-env').OutgoingAttachment[]
+): Promise<{ id: string }> {
   const gmail = getGmailAPI();
   if (!gmail) throw new Error('Gmail not available');
-  const result = await gmail.sendReply(accountId, threadId, bodyText);
+  const result = await gmail.sendReply(accountId, threadId, bodyText, attachments);
   invalidateThreadCache(accountId, threadId);
   return result;
+}
+
+export async function createDraft(
+  accountId: string | undefined,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments?: import('@/vite-env').OutgoingAttachment[]
+): Promise<{ id: string; messageId: string }> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.createDraft(accountId, to, cc, bcc, subject, bodyText, attachments);
+}
+
+export async function updateDraft(
+  accountId: string | undefined,
+  draftId: string,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments?: import('@/vite-env').OutgoingAttachment[]
+): Promise<void> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.updateDraft(accountId, draftId, to, cc, bcc, subject, bodyText, attachments);
+}
+
+export async function deleteDraft(accountId: string | undefined, draftId: string): Promise<void> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.deleteDraft(accountId, draftId);
+}
+
+export async function sendDraft(accountId: string | undefined, draftId: string): Promise<{ id: string }> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.sendDraft(accountId, draftId);
+}
+
+export async function sendNewMessage(
+  accountId: string | undefined,
+  to: string,
+  cc: string,
+  bcc: string,
+  subject: string,
+  bodyText: string,
+  attachments?: import('@/vite-env').OutgoingAttachment[]
+): Promise<{ id: string }> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  return gmail.sendNewMessage(accountId, to, cc, bcc, subject, bodyText, attachments);
 }
 
 /** Done = archive + mark read: remove INBOX and UNREAD. */
@@ -171,6 +238,13 @@ export async function doneThread(accountId: string | undefined, threadId: string
   const gmail = getGmailAPI();
   if (!gmail) throw new Error('Gmail not available');
   await gmail.modifyLabels(accountId, threadId, [], ['INBOX', 'UNREAD']);
+  invalidateThreadCache(accountId, threadId);
+}
+
+export async function unarchiveThread(accountId: string | undefined, threadId: string): Promise<void> {
+  const gmail = getGmailAPI();
+  if (!gmail) throw new Error('Gmail not available');
+  await gmail.modifyLabels(accountId, threadId, ['INBOX'], []);
   invalidateThreadCache(accountId, threadId);
 }
 

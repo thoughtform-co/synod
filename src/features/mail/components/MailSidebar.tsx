@@ -21,11 +21,8 @@ const LABEL_ITEMS: LabelItem[] = [
   { id: 'done', name: 'Done', shape: 'done', view: { type: 'query', query: '-in:inbox -in:spam -in:trash' }, dividerAfter: true },
   { id: 'DRAFT', name: 'Drafts', shape: 'drafts', view: { type: 'label', labelId: 'DRAFT' } },
   { id: 'SENT', name: 'Sent', shape: 'sent', view: { type: 'label', labelId: 'SENT' } },
-  { id: 'invites', name: 'Invites', shape: 'invites', view: { type: 'query', query: 'has:invite' }, dividerAfter: true },
-  { id: 'CATEGORY_PROMOTIONS', name: 'Promotions', shape: 'promotions', view: { type: 'label', labelId: 'CATEGORY_PROMOTIONS' } },
-  { id: 'CATEGORY_SOCIAL', name: 'Social', shape: 'social', view: { type: 'label', labelId: 'CATEGORY_SOCIAL' } },
-  { id: 'CATEGORY_UPDATES', name: 'Updates', shape: 'updates', view: { type: 'label', labelId: 'CATEGORY_UPDATES' } },
-  { id: 'SPAM', name: 'Spam', shape: 'spam', view: { type: 'label', labelId: 'SPAM' } },
+  { id: 'invites', name: 'Invites', shape: 'invites', view: { type: 'query', query: 'has:invite' } },
+  { id: 'SPAM', name: 'Spam', shape: 'spam', view: { type: 'label', labelId: 'SPAM' }, dividerAfter: true },
 ];
 
 interface MailSidebarProps {
@@ -38,6 +35,7 @@ interface MailSidebarProps {
   onOpenSettings: () => void;
   onAddAccount: () => void;
   onIndexAccount: () => void;
+  onCompose: () => void;
   refreshAccounts: () => void;
 }
 
@@ -53,10 +51,13 @@ export function MailSidebar({
   activeAccountId,
   currentView,
   onSetActive,
+  onReorder,
   onViewChange,
   onOpenSettings,
   onAddAccount,
   onIndexAccount,
+  onCompose,
+  refreshAccounts,
 }: MailSidebarProps) {
   const accounts = accountsResult?.accounts ?? [];
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
@@ -76,9 +77,10 @@ export function MailSidebar({
 
   return (
     <nav className="mail-sidebar">
-      {/* Account switcher */}
-      <div className="sidebar-account-switcher" ref={dropdownRef}>
-        <button
+      {/* Account switcher + compose */}
+      <div className="sidebar-account-row">
+        <div className="sidebar-account-switcher" ref={dropdownRef}>
+          <button
           type="button"
           className="sidebar-account-switcher__trigger"
           onClick={() => setDropdownOpen((v) => !v)}
@@ -142,6 +144,16 @@ export function MailSidebar({
             </li>
           </ul>
         )}
+        </div>
+        <button
+          type="button"
+          className="sidebar-account-compose"
+          onClick={onCompose}
+          title="New message"
+          aria-label="New message"
+        >
+          <ParticleNavIcon shape="drafts" size={16} />
+        </button>
       </div>
 
       {/* Label list */}

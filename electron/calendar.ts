@@ -112,30 +112,40 @@ function parseEventsFromResponse(
 
 export function listEvents(accountId?: string, daysAhead: number = DEFAULT_DAYS_AHEAD): Promise<CalendarEvent[]> {
   return withRetry(async () => {
-    const calendar = getCalendarClient(accountId);
-    const calendars = await listCalendars(accountId);
-    const visibleCalendars = calendars.filter((c) => c.selected);
-    if (visibleCalendars.length === 0) visibleCalendars.push({ id: 'primary', summary: 'Primary', selected: true });
+    try {
+      const calendar = getCalendarClient(accountId);
+      const calendars = await listCalendars(accountId);
+      const visibleCalendars = calendars.filter((c) => c.selected);
+      if (visibleCalendars.length === 0) visibleCalendars.push({ id: 'primary', summary: 'Primary', selected: true });
 
-    const now = new Date();
-    const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + daysAhead);
-    const timeMin = now.toISOString();
-    const timeMax = endDate.toISOString();
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + daysAhead);
+      const timeMin = now.toISOString();
+      const timeMax = endDate.toISOString();
 
-    const allEvents: CalendarEvent[] = [];
-    for (const cal of visibleCalendars) {
-      const res = await calendar.events.list({
-        calendarId: cal.id,
-        timeMin,
-        timeMax,
-        singleEvents: true,
-        orderBy: 'startTime',
-        maxResults: 50,
-      });
-      allEvents.push(...parseEventsFromResponse(res.data.items || [], cal.id));
+      const allEvents: CalendarEvent[] = [];
+      for (const cal of visibleCalendars) {
+        const res = await calendar.events.list({
+          calendarId: cal.id,
+          timeMin,
+          timeMax,
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: 50,
+        });
+        allEvents.push(...parseEventsFromResponse(res.data.items || [], cal.id));
+      }
+      return allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: number })?.code;
+      console.error('[calendar] listEvents failed:', message, code != null ? `(code ${code})` : '');
+      if (code === 403 || message.toLowerCase().includes('calendar')) {
+        console.error('[calendar] Ensure Google Calendar API is enabled for your project in Google Cloud Console.');
+      }
+      throw err;
     }
-    return allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   });
 }
 
@@ -146,25 +156,35 @@ export function listEventsRange(
   calendarId?: string
 ): Promise<CalendarEvent[]> {
   return withRetry(async () => {
-    const calendar = getCalendarClient(accountId);
-    const calendars = await listCalendars(accountId);
-    const visibleCalendars = calendars.filter((c) => c.selected);
-    if (visibleCalendars.length === 0) visibleCalendars.push({ id: 'primary', summary: 'Primary', selected: true });
+    try {
+      const calendar = getCalendarClient(accountId);
+      const calendars = await listCalendars(accountId);
+      const visibleCalendars = calendars.filter((c) => c.selected);
+      if (visibleCalendars.length === 0) visibleCalendars.push({ id: 'primary', summary: 'Primary', selected: true });
 
-    const idsToFetch = calendarId ? [calendarId] : visibleCalendars.map((c) => c.id);
-    const allEvents: CalendarEvent[] = [];
-    for (const cid of idsToFetch) {
-      const res = await calendar.events.list({
-        calendarId: cid,
-        timeMin,
-        timeMax,
-        singleEvents: true,
-        orderBy: 'startTime',
-        maxResults: 250,
-      });
-      allEvents.push(...parseEventsFromResponse(res.data.items || [], cid));
+      const idsToFetch = calendarId ? [calendarId] : visibleCalendars.map((c) => c.id);
+      const allEvents: CalendarEvent[] = [];
+      for (const cid of idsToFetch) {
+        const res = await calendar.events.list({
+          calendarId: cid,
+          timeMin,
+          timeMax,
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: 250,
+        });
+        allEvents.push(...parseEventsFromResponse(res.data.items || [], cid));
+      }
+      return allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: number })?.code;
+      console.error('[calendar] listEventsRange failed:', message, code != null ? `(code ${code})` : '');
+      if (code === 403 || message.toLowerCase().includes('calendar')) {
+        console.error('[calendar] Ensure Google Calendar API is enabled for your project in Google Cloud Console.');
+      }
+      throw err;
     }
-    return allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   });
 }
 

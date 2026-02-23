@@ -36,7 +36,12 @@ interface ElectronAPI {
     listThreads: (accountId: string | undefined, labelId: string, maxResults: number, pageToken?: string) => Promise<{ threads: { id: string; snippet: string; subject?: string; from?: string; internalDate?: number }[]; nextPageToken?: string }>;
     getThread: (accountId: string | undefined, threadId: string) => Promise<{ id: string; messages: GmailMessage[] }>;
     getAttachment: (accountId: string | undefined, messageId: string, attachmentId: string) => Promise<{ data: string }>;
-    sendReply: (accountId: string | undefined, threadId: string, bodyText: string) => Promise<{ id: string }>;
+    sendReply: (accountId: string | undefined, threadId: string, bodyText: string, attachments?: OutgoingAttachment[]) => Promise<{ id: string }>;
+    createDraft: (accountId: string | undefined, to: string, cc: string, bcc: string, subject: string, bodyText: string, attachments?: OutgoingAttachment[]) => Promise<{ id: string; messageId: string }>;
+    updateDraft: (accountId: string | undefined, draftId: string, to: string, cc: string, bcc: string, subject: string, bodyText: string, attachments?: OutgoingAttachment[]) => Promise<void>;
+    deleteDraft: (accountId: string | undefined, draftId: string) => Promise<void>;
+    sendDraft: (accountId: string | undefined, draftId: string) => Promise<{ id: string }>;
+    sendNewMessage: (accountId: string | undefined, to: string, cc: string, bcc: string, subject: string, bodyText: string, attachments?: OutgoingAttachment[]) => Promise<{ id: string }>;
     getLabelIds: () => Promise<{ INBOX: string; SENT: string; DRAFT: string }>;
     modifyLabels: (accountId: string | undefined, threadId: string, addLabelIds: string[], removeLabelIds: string[]) => Promise<void>;
     trashThread: (accountId: string | undefined, threadId: string) => Promise<void>;
@@ -144,6 +149,13 @@ export interface GmailAttachment {
   mimeType: string;
   size: number;
   attachmentId: string;
+}
+
+/** Outgoing attachment: base64url-encoded data for compose/send. */
+export interface OutgoingAttachment {
+  filename: string;
+  mimeType: string;
+  dataBase64: string;
 }
 
 export interface GmailMessage {

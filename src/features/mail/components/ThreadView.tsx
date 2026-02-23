@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Check, ChevronRight, Clock, Download, Forward, ListTodo, Paperclip, Reply, Trash2 } from 'lucide-react';
-import { fetchThread, getThreadFromCache, doneThread, deleteThread, type ThreadDetail, type ThreadMessage } from '../mailRepository';
+import { ArrowUpFromLine, Check, ChevronRight, Clock, Download, ListTodo, Paperclip, Trash2 } from 'lucide-react';
+import { fetchThread, getThreadFromCache, doneThread, deleteThread, unarchiveThread, type ThreadDetail, type ThreadMessage } from '../mailRepository';
 import { useSyncStatus } from '../useSyncStatus';
 import { recordThreadCacheHit, recordThreadFetchDurationMs } from '@/lib/metrics';
 import { formatEmailDate } from '../utils';
+import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import { ReplyComposer } from './ReplyComposer';
 
 function formatFileSize(bytes: number): string {
@@ -24,6 +25,8 @@ interface ThreadViewProps {
   threadId: string;
   activeAccountId: string | null;
   currentUserEmail?: string | null;
+  /** When true, show Unarchive instead of Done and add INBOX on action. */
+  isDoneView?: boolean;
   onDone?: (threadId: string) => void;
   onDelete?: (threadId: string) => void;
 }
@@ -118,7 +121,7 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
             title="Reply"
             aria-label="Reply"
           >
-            <Reply size={14} strokeWidth={1.5} />
+            <ParticleNavIcon shape="reply" size={14} />
           </button>
           <button
             type="button"
@@ -127,7 +130,7 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
             title="Forward"
             aria-label="Forward"
           >
-            <Forward size={14} strokeWidth={1.5} />
+            <ParticleNavIcon shape="forward" size={14} />
           </button>
         </div>
       )}
@@ -168,7 +171,7 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
   );
 });
 
-export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone, onDelete }: ThreadViewProps) {
+export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDoneView, onDone, onDelete }: ThreadViewProps) {
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -279,12 +282,12 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
     setExpandedIds(new Set(thread.messages.map((m) => m.id)));
   }, [thread]);
 
-  const handleSendReply = useCallback(async (bodyText: string) => {
+  const handleSendReply = useCallback(async (bodyText: string, attachments?: import('@/vite-env').OutgoingAttachment[]) => {
     if (!thread) return;
     setSending(true);
     try {
       const { sendReply } = await import('../mailRepository');
-      await sendReply(activeAccountId ?? undefined, thread.id, bodyText);
+      await sendReply(activeAccountId ?? undefined, thread.id, bodyText, attachments);
       const updated = await fetchThread(activeAccountId ?? undefined, threadId);
       setThread(updated ?? thread);
     } finally {
@@ -297,6 +300,17 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
     setActionPending(true);
     try {
       await doneThread(activeAccountId ?? undefined, thread.id);
+      onDone?.(thread.id);
+    } finally {
+      setActionPending(false);
+    }
+  }, [activeAccountId, thread, actionPending, onDone]);
+
+  const handleUnarchive = useCallback(async () => {
+    if (!thread || actionPending) return;
+    setActionPending(true);
+    try {
+      await unarchiveThread(activeAccountId ?? undefined, thread.id);
       onDone?.(thread.id);
     } finally {
       setActionPending(false);
@@ -351,7 +365,8 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
       switch (key) {
         case 'E':
           e.preventDefault();
-          handleDone();
+          if (isDoneView) handleUnarchive();
+          else handleDone();
           break;
         case 'R':
           e.preventDefault();
@@ -371,7 +386,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleDone, focusReply, handleReplyAll, handleReminder]);
+  }, [handleDone, handleUnarchive, isDoneView, focusReply, handleReplyAll, handleReminder]);
 
   if (error) {
     return (
@@ -397,16 +412,29 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, onDone
         <div className="thread-view__header-row">
           <h1 className="thread-view__subject">{subject}</h1>
           <div className="thread-view__actions">
-            <button
-              type="button"
-              className="thread-view__action-btn"
-              onClick={handleDone}
-              disabled={actionPending}
-              title="Done (E)"
-              aria-label="Done"
-            >
-              <Check size={18} strokeWidth={1.5} />
-            </button>
+            {isDoneView ? (
+              <button
+                type="button"
+                className="thread-view__action-btn"
+                onClick={handleUnarchive}
+                disabled={actionPending}
+                title="Unarchive (E)"
+                aria-label="Unarchive"
+              >
+                <ArrowUpFromLine size={18} strokeWidth={1.5} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="thread-view__action-btn"
+                onClick={handleDone}
+                disabled={actionPending}
+                title="Done (E)"
+                aria-label="Done"
+              >
+                <Check size={18} strokeWidth={1.5} />
+              </button>
+            )}
             <button
               type="button"
               className="thread-view__action-btn"

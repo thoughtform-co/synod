@@ -4,7 +4,22 @@ import path from 'path';
 import { initDb, getDb, getKv, setKv, deleteKv } from './db';
 import { migrateSecretsFromPlaintext } from './secretStorage';
 import { runOAuthFlow } from './oauth';
-import { listThreads, getThread, getAttachment, buildAndSendReply, getLabelIds, modifyLabels, trashThread, searchThreads, listLabels } from './gmail';
+import {
+  listThreads,
+  getThread,
+  getAttachment,
+  buildAndSendReply,
+  createDraft,
+  updateDraft,
+  deleteDraft,
+  sendDraft,
+  sendNewMessage,
+  getLabelIds,
+  modifyLabels,
+  trashThread,
+  searchThreads,
+  listLabels,
+} from './gmail';
 import { getThreadListFromDb, getThreadFromDb, searchThreadsLocal } from './mailCache';
 import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
 import { listEvents, listEventsRange, listCalendars, respondToEvent } from './calendar';
@@ -28,6 +43,11 @@ import {
   validateGmailGetThreadArgs,
   validateGmailGetAttachmentArgs,
   validateGmailSendReplyArgs,
+  validateGmailCreateDraftArgs,
+  validateGmailUpdateDraftArgs,
+  validateGmailDeleteDraftArgs,
+  validateGmailSendDraftArgs,
+  validateGmailSendNewMessageArgs,
   validateGmailModifyLabelsArgs,
   validateGmailSearchArgs,
   validateCalendarListEventsArgs,
@@ -227,10 +247,71 @@ ipcMain.handle('gmail:getAttachment', async (_event, accountId: unknown, message
   if (!validateGmailGetAttachmentArgs(accountId, messageId, attachmentId)) throw new Error('Invalid gmail:getAttachment args');
   return getAttachment(accountId as string | undefined, messageId as string, attachmentId as string);
 });
-ipcMain.handle('gmail:sendReply', (_event, accountId: unknown, threadId: unknown, bodyText: unknown) => {
-  if (!validateGmailSendReplyArgs(accountId, threadId, bodyText)) throw new Error('Invalid gmail:sendReply args');
-  return buildAndSendReply(accountId as string | undefined, threadId as string, bodyText as string);
+ipcMain.handle(
+  'gmail:sendReply',
+  (_event, accountId: unknown, threadId: unknown, bodyText: unknown, attachments?: unknown) => {
+    if (!validateGmailSendReplyArgs(accountId, threadId, bodyText, attachments)) throw new Error('Invalid gmail:sendReply args');
+    const att = Array.isArray(attachments) ? (attachments as { filename: string; mimeType: string; dataBase64: string }[]) : [];
+    return buildAndSendReply(accountId as string | undefined, threadId as string, bodyText as string, att);
+  }
+);
+ipcMain.handle(
+  'gmail:createDraft',
+  (_event, accountId: unknown, to: unknown, cc: unknown, bcc: unknown, subject: unknown, bodyText: unknown, attachments?: unknown) => {
+    if (!validateGmailCreateDraftArgs(accountId, to, cc, bcc, subject, bodyText, attachments)) throw new Error('Invalid gmail:createDraft args');
+    const att = Array.isArray(attachments) ? (attachments as { filename: string; mimeType: string; dataBase64: string }[]) : [];
+    return createDraft(
+      accountId as string | undefined,
+      to as string,
+      cc as string,
+      bcc as string,
+      subject as string,
+      bodyText as string,
+      att
+    );
+  }
+);
+ipcMain.handle(
+  'gmail:updateDraft',
+  (_event, accountId: unknown, draftId: unknown, to: unknown, cc: unknown, bcc: unknown, subject: unknown, bodyText: unknown, attachments?: unknown) => {
+    if (!validateGmailUpdateDraftArgs(accountId, draftId, to, cc, bcc, subject, bodyText, attachments)) throw new Error('Invalid gmail:updateDraft args');
+    const att = Array.isArray(attachments) ? (attachments as { filename: string; mimeType: string; dataBase64: string }[]) : [];
+    return updateDraft(
+      accountId as string | undefined,
+      draftId as string,
+      to as string,
+      cc as string,
+      bcc as string,
+      subject as string,
+      bodyText as string,
+      att
+    );
+  }
+);
+ipcMain.handle('gmail:deleteDraft', (_event, accountId: unknown, draftId: unknown) => {
+  if (!validateGmailDeleteDraftArgs(accountId, draftId)) throw new Error('Invalid gmail:deleteDraft args');
+  return deleteDraft(accountId as string | undefined, draftId as string);
 });
+ipcMain.handle('gmail:sendDraft', (_event, accountId: unknown, draftId: unknown) => {
+  if (!validateGmailSendDraftArgs(accountId, draftId)) throw new Error('Invalid gmail:sendDraft args');
+  return sendDraft(accountId as string | undefined, draftId as string);
+});
+ipcMain.handle(
+  'gmail:sendNewMessage',
+  (_event, accountId: unknown, to: unknown, cc: unknown, bcc: unknown, subject: unknown, bodyText: unknown, attachments?: unknown) => {
+    if (!validateGmailSendNewMessageArgs(accountId, to, cc, bcc, subject, bodyText, attachments)) throw new Error('Invalid gmail:sendNewMessage args');
+    const att = Array.isArray(attachments) ? (attachments as { filename: string; mimeType: string; dataBase64: string }[]) : [];
+    return sendNewMessage(
+      accountId as string | undefined,
+      to as string,
+      cc as string,
+      bcc as string,
+      subject as string,
+      bodyText as string,
+      att
+    );
+  }
+);
 ipcMain.handle('gmail:getLabelIds', () => getLabelIds());
 ipcMain.handle(
   'gmail:modifyLabels',

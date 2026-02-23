@@ -20,13 +20,26 @@ function viewTitle(view: MailView): string {
   return 'Invites';
 }
 
+const INBOX_CATEGORY_LABELS: { id: string; name: string }[] = [
+  { id: 'INBOX', name: 'Inbox' },
+  { id: 'CATEGORY_PROMOTIONS', name: 'Promotions' },
+  { id: 'CATEGORY_SOCIAL', name: 'Social' },
+  { id: 'CATEGORY_UPDATES', name: 'Updates' },
+];
+
 interface ThreadListProps {
   activeAccountId: string | null;
+  /** Current user email for unreplied detection (last message not from this user). */
+  currentUserEmail?: string | null;
   mailView: MailView;
   selectedThreadId: string | null;
   onSelectThread: (id: string | null) => void;
+  /** When provided, show category tabs when viewing Inbox (or a category). */
+  onViewChange?: (view: MailView) => void;
   /** Thread IDs just mutated (done/delete); omit from list so they disappear immediately. */
   removedThreadIds?: string[];
+  /** Thread ID currently playing the done-glitch animation. */
+  glitchThreadId?: string | null;
   /** When set, show these filtered results instead of the normal thread list. */
   searchResults?: LocalSearchResult[];
   /** Ref updated with the current visible thread IDs for external consumers. */
@@ -35,7 +48,7 @@ interface ThreadListProps {
 
 const PAGE_SIZE = 30;
 
-export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSelectThread, removedThreadIds = [], searchResults = [], threadIdsRef }: ThreadListProps) {
+export function ThreadList({ activeAccountId, currentUserEmail, mailView, selectedThreadId, onSelectThread, onViewChange, removedThreadIds = [], glitchThreadId = null, searchResults = [], threadIdsRef }: ThreadListProps) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -114,11 +127,17 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
 
   const isSearchActive = searchResults.length > 0;
   const items = isSearchActive
-    ? searchResults.map((r) => ({ threadId: r.threadId, from: r.from, subject: r.subject, snippet: r.snippet, internalDate: r.internalDate }))
-    : visibleThreads.map((t) => ({ threadId: t.id, from: t.from, subject: t.subject, snippet: t.snippet, internalDate: t.internalDate }));
+    ? searchResults.map((r) => ({ threadId: r.threadId, from: r.from, subject: r.subject, snippet: r.snippet, internalDate: r.internalDate, fromEmail: undefined as string | undefined }))
+    : visibleThreads.map((t) => ({ threadId: t.id, from: t.from, subject: t.subject, snippet: t.snippet, internalDate: t.internalDate, fromEmail: t.fromEmail }));
 
   const itemIds = items.map((i) => i.threadId);
   if (threadIdsRef) threadIdsRef.current = itemIds;
+
+  const showCategoryTabs =
+    !isSearchActive &&
+    onViewChange &&
+    mailView.type === 'label' &&
+    INBOX_CATEGORY_LABELS.some((c) => c.id === mailView.labelId);
 
   return (
     <div className="thread-list">
@@ -134,6 +153,23 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
             <ParticleNavIcon shape="sync" size={14} active={syncStatus === 'syncing'} />
           </span>
         </header>
+      )}
+      {showCategoryTabs && (
+        <div className="thread-list__category-tabs">
+          {INBOX_CATEGORY_LABELS.map((tab) => {
+            const isActive = mailView.type === 'label' && mailView.labelId === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`thread-list__category-tab ${isActive ? 'thread-list__category-tab--active' : ''}`}
+                onClick={() => onViewChange!({ type: 'label', labelId: tab.id })}
+              >
+                {tab.name}
+              </button>
+            );
+          })}
+        </div>
       )}
       {loading && !isSearchActive ? (
         <div className="thread-list__loading">Loading…</div>
@@ -151,7 +187,7 @@ export function ThreadList({ activeAccountId, mailView, selectedThreadId, onSele
                   )}
                   <button
                     type="button"
-                    className={`thread-list__item ${selectedThreadId === item.threadId ? 'thread-list__item--selected' : ''}`}
+                    className={`thread-list__item ${selectedThreadId === item.threadId ? 'thread-list__item--selected' : ''} ${glitchThreadId === item.threadId ? 'thread-list__item--done-glitch' : ''} ${currentUserEmail && item.fromEmail && item.fromEmail.toLowerCase() !== currentUserEmail.toLowerCase() ? 'thread-list__item--unreplied' : ''}`}
                     onClick={() => onSelectThread(item.threadId)}
                   >
                     <div className="thread-list__row thread-list__row--meta">
