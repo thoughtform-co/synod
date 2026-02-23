@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Mail, CalendarDays, Sun, Moon, Minus, Square, X } from 'lucide-react';
+import { Mail, Sun, Moon, Minus, Square, X } from 'lucide-react';
+import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import { type BaseTheme, applyTheme } from '@/app/App';
 import { MailSidebar } from '@/features/mail/components/MailSidebar';
 import { MailSearch } from '@/features/mail/components/MailSearch';
@@ -13,6 +14,7 @@ import type { MailView } from '@/features/mail/mailRepository';
 import { connectGoogleAccount } from '@/features/auth/googleOAuth';
 import { getGoogleClientId, getGoogleClientSecret } from '@/features/auth/authStore';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import { ToastNotification, useToastQueue } from '@/components/shared/ToastNotification';
 
 type Tab = 'mail' | 'calendar';
 
@@ -39,6 +41,18 @@ export function AppShell() {
   const [searchResults, setSearchResults] = useState<LocalSearchResult[]>([]);
   const [composeOpen, setComposeOpen] = useState(false);
   const [glitchThreadId, setGlitchThreadId] = useState<string | null>(null);
+  const { toasts, addToast, dismiss } = useToastQueue();
+
+  useEffect(() => {
+    const unsub = window.electronAPI?.notifications?.onShow?.((payload) => {
+      addToast({
+        type: payload.type === 'reminder' ? 'reminder' : 'mail',
+        title: payload.title,
+        body: payload.body,
+      });
+    });
+    return () => unsub?.();
+  }, [addToast]);
 
   const mailViewKey = mailView.type === 'label' ? mailView.labelId : mailView.query;
   useEffect(() => {
@@ -229,7 +243,7 @@ export function AppShell() {
               onClick={() => setActiveTab('calendar')}
               aria-label="Calendar"
             >
-              <CalendarDays size={18} strokeWidth={1.5} />
+              <ParticleNavIcon shape="calendar" size={18} active={activeTab === 'calendar'} />
               <span className="shell-tab__label">Calendar</span>
             </button>
           </nav>
@@ -272,98 +286,99 @@ export function AppShell() {
         </div>
       </header>
 
-      {activeTab === 'mail' ? (
-        <div
-          className="shell-mail"
-          style={{ gridTemplateColumns: `${sidebarWidth}px 6px ${listWidth}px 6px 1fr` }}
-        >
-          <aside className="shell-mail__sidebar">
-            <MailSidebar
-              accountsResult={accountsResult}
-              activeAccountId={activeAccountId}
-              currentView={mailView}
-              onSetActive={handleSetActive}
-              onReorder={handleReorder}
-              onViewChange={setMailView}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onAddAccount={handleAddAccount}
-              onIndexAccount={handleIndexAccount}
-              onCompose={() => setComposeOpen(true)}
-              refreshAccounts={refreshAccounts}
-            />
-          </aside>
-          <div
-            className="shell-mail__resize-handle shell-mail__resize-handle--sidebar"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              startResize('sidebar', e.clientX, sidebarWidth);
-            }}
+      <div
+        className="shell-mail"
+        style={{
+          gridTemplateColumns: `${sidebarWidth}px 6px ${listWidth}px 6px 1fr`,
+          display: activeTab === 'mail' ? undefined : 'none',
+        }}
+      >
+        <aside className="shell-mail__sidebar">
+          <MailSidebar
+            accountsResult={accountsResult}
+            activeAccountId={activeAccountId}
+            currentView={mailView}
+            onSetActive={handleSetActive}
+            onReorder={handleReorder}
+            onViewChange={setMailView}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onAddAccount={handleAddAccount}
+            onIndexAccount={handleIndexAccount}
+            onCompose={() => setComposeOpen(true)}
+            refreshAccounts={refreshAccounts}
           />
-          <section className="shell-mail__list">
-            <MailSearch
-              ref={searchRef}
-              activeAccountId={activeAccountId}
-              accountIds={accountsResult?.accountsOrder ?? accountsResult?.accounts?.map((a) => a.id) ?? []}
-              onSelectThread={setSelectedThreadId}
-              onLocalResults={setSearchResults}
-            />
-            <ThreadList
+        </aside>
+        <div
+          className="shell-mail__resize-handle shell-mail__resize-handle--sidebar"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            startResize('sidebar', e.clientX, sidebarWidth);
+          }}
+        />
+        <section className="shell-mail__list">
+          <MailSearch
+            ref={searchRef}
+            activeAccountId={activeAccountId}
+            accountIds={accountsResult?.accountsOrder ?? accountsResult?.accounts?.map((a) => a.id) ?? []}
+            onSelectThread={setSelectedThreadId}
+            onLocalResults={setSearchResults}
+          />
+          <ThreadList
+            activeAccountId={activeAccountId}
+            currentUserEmail={accountsResult?.accounts?.find((a) => a.id === activeAccountId)?.email ?? null}
+            mailView={mailView}
+            selectedThreadId={selectedThreadId}
+            onSelectThread={setSelectedThreadId}
+            onViewChange={setMailView}
+            removedThreadIds={removedThreadIds}
+            glitchThreadId={glitchThreadId}
+            searchResults={searchResults}
+            threadIdsRef={threadIdsRef}
+          />
+        </section>
+        <div
+          className="shell-mail__resize-handle shell-mail__resize-handle--list"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize thread list"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            startResize('list', e.clientX, listWidth);
+          }}
+        />
+        <main className="shell-mail__view">
+          {selectedThreadId ? (
+            <ThreadView
+              threadId={selectedThreadId}
               activeAccountId={activeAccountId}
               currentUserEmail={accountsResult?.accounts?.find((a) => a.id === activeAccountId)?.email ?? null}
-              mailView={mailView}
-              selectedThreadId={selectedThreadId}
-              onSelectThread={setSelectedThreadId}
-              onViewChange={setMailView}
-              removedThreadIds={removedThreadIds}
-              glitchThreadId={glitchThreadId}
-              searchResults={searchResults}
-              threadIdsRef={threadIdsRef}
+              isDoneView={mailView.type === 'query' && mailView.query === '-in:inbox -in:spam -in:trash'}
+              onDone={advancePastThread}
+              onDelete={advancePastThread}
             />
-          </section>
-          <div
-            className="shell-mail__resize-handle shell-mail__resize-handle--list"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize thread list"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              startResize('list', e.clientX, listWidth);
-            }}
-          />
-          <main className="shell-mail__view">
-            {selectedThreadId ? (
-              <ThreadView
-                threadId={selectedThreadId}
-                activeAccountId={activeAccountId}
-                currentUserEmail={accountsResult?.accounts?.find((a) => a.id === activeAccountId)?.email ?? null}
-                isDoneView={mailView.type === 'query' && mailView.query === '-in:inbox -in:spam -in:trash'}
-                onDone={advancePastThread}
-                onDelete={advancePastThread}
-              />
-            ) : (
-              <div className="shell-mail__empty">
-                <p className="shell-mail__empty-text">Select a conversation</p>
-                <button type="button" className="shell-mail__empty-compose" onClick={() => setComposeOpen(true)}>
-                  New message
-                </button>
-              </div>
-            )}
-          </main>
-        </div>
-      ) : (
-        <main className="shell-calendar">
-          <CalendarView accountsResult={accountsResult} />
+          ) : (
+            <div className="shell-mail__empty">
+              <p className="shell-mail__empty-text">Select a conversation</p>
+              <button type="button" className="shell-mail__empty-compose" onClick={() => setComposeOpen(true)}>
+                New message
+              </button>
+            </div>
+          )}
         </main>
-      )}
+      </div>
+      <main className="shell-calendar" style={{ display: activeTab === 'calendar' ? undefined : 'none' }}>
+        <CalendarView accountsResult={accountsResult} />
+      </main>
       {settingsOpen && (
         <SettingsPanel
           onClose={() => setSettingsOpen(false)}
           onAccountsChange={refreshAccounts}
         />
       )}
+      <ToastNotification toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

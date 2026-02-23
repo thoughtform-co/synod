@@ -6,6 +6,8 @@ import { recordThreadCacheHit, recordThreadFetchDurationMs } from '@/lib/metrics
 import { formatEmailDate } from '../utils';
 import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import { ReplyComposer } from './ReplyComposer';
+import { AttachmentPreview, isPreviewable } from '@/components/shared/AttachmentPreview';
+import type { GmailAttachment } from '@/vite-env.d';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,10 +56,11 @@ interface ThreadMessageRowProps {
   onToggle: (msgId: string) => void;
   onReply: (msgId: string) => void;
   onForward: (msgId: string) => void;
+  onPreviewAttachment: (att: GmailAttachment, messageId: string) => void;
   registerRef: (id: string, el: HTMLDivElement | null) => void;
 }
 
-const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, activeAccountId, onToggle, onReply, onForward, registerRef }: ThreadMessageRowProps) {
+const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromMe, activeAccountId, onToggle, onReply, onForward, onPreviewAttachment, registerRef }: ThreadMessageRowProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const snippet = useMemo(
     () => (msg.bodyPlain || msg.snippet || '').slice(0, 120).replace(/\n/g, ' ') || '(No content)',
@@ -145,23 +148,42 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
           {msg.attachments && msg.attachments.length > 0 && (
             <div className="thread-view__attachments">
               {msg.attachments.map((att) => (
-                <button
-                  key={att.attachmentId}
-                  type="button"
-                  className="thread-view__attachment-chip"
-                  onClick={() => handleDownload(att.attachmentId, att.filename, att.mimeType)}
-                  disabled={downloadingId === att.attachmentId}
-                  title={`Download ${att.filename}`}
-                >
-                  <Paperclip size={14} aria-hidden />
-                  <span className="thread-view__attachment-filename">{att.filename}</span>
-                  <span className="thread-view__attachment-size">{formatFileSize(att.size)}</span>
-                  {downloadingId === att.attachmentId ? (
-                    <span className="thread-view__attachment-loading">…</span>
-                  ) : (
-                    <Download size={14} aria-hidden />
-                  )}
-                </button>
+                <div key={att.attachmentId} className="thread-view__attachment-row">
+                  <button
+                    type="button"
+                    className="thread-view__attachment-chip"
+                    onClick={() => {
+                      if (isPreviewable(att.mimeType)) {
+                        onPreviewAttachment(att, msg.id);
+                      } else {
+                        handleDownload(att.attachmentId, att.filename, att.mimeType);
+                      }
+                    }}
+                    disabled={downloadingId === att.attachmentId}
+                    title={isPreviewable(att.mimeType) ? `Preview ${att.filename}` : `Download ${att.filename}`}
+                  >
+                    <Paperclip size={14} aria-hidden />
+                    <span className="thread-view__attachment-filename">{att.filename}</span>
+                    <span className="thread-view__attachment-size">{formatFileSize(att.size)}</span>
+                    {downloadingId === att.attachmentId ? (
+                      <span className="thread-view__attachment-loading">…</span>
+                    ) : (
+                      <Download size={14} aria-hidden />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="thread-view__attachment-download-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(att.attachmentId, att.filename, att.mimeType);
+                    }}
+                    disabled={downloadingId === att.attachmentId}
+                    aria-label={`Download ${att.filename}`}
+                  >
+                    <Download size={12} strokeWidth={1.5} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -178,6 +200,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDone
   const [sending, setSending] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [previewAttachment, setPreviewAttachment] = useState<{ messageId: string; att: GmailAttachment } | null>(null);
   const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const syncStatus = useSyncStatus();
@@ -495,6 +518,7 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDone
             onToggle={toggleMessage}
             onReply={handleReplyToMessage}
             onForward={handleForwardMessage}
+            onPreviewAttachment={(att, messageId) => setPreviewAttachment({ messageId, att })}
             registerRef={registerMsgRef}
           />
         ))}
@@ -507,6 +531,18 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDone
         />
         <div ref={messagesEndRef} />
       </div>
+
+      {previewAttachment && (
+        <AttachmentPreview
+          accountId={activeAccountId ?? undefined}
+          messageId={previewAttachment.messageId}
+          attachmentId={previewAttachment.att.attachmentId}
+          filename={previewAttachment.att.filename}
+          mimeType={previewAttachment.att.mimeType}
+          size={previewAttachment.att.size}
+          onClose={() => setPreviewAttachment(null)}
+        />
+      )}
     </div>
   );
 }

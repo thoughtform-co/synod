@@ -1,12 +1,17 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import {
   fetchEventsForAccounts,
+  getCachedEventsForAccounts,
   getReminderMinutes,
   setReminderMinutes,
   type CalendarEvent,
 } from '../calendarClient';
 import type { AccountEntry, AccountsListResult } from '@/vite-env.d';
+import { CalendarSearch } from './CalendarSearch';
+import { EventPopup } from './EventPopup';
+import { EventEditor } from './EventEditor';
 
 export type CalViewMode = 'month' | 'week' | 'day';
 
@@ -109,6 +114,11 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
   const [loading, setLoading] = useState(false);
   const [enabledAccounts, setEnabledAccounts] = useState<Set<string>>(new Set());
   const [reminderMins, setReminderMins] = useState(15);
+  const [popupEvent, setPopupEvent] = useState<CalendarEvent | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
+  const [editorState, setEditorState] = useState<
+    { mode: 'create'; date: Date } | { mode: 'edit'; event: CalendarEvent } | null
+  >(null);
 
   const accounts = accountsResult?.accounts ?? [];
   const today = useMemo(() => {
@@ -146,12 +156,16 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
       setEvents([]);
       return;
     }
+    const timeMin = rangeStart.toISOString();
+    const timeMax = rangeEnd.toISOString();
+    const cached = getCachedEventsForAccounts(ids, timeMin, timeMax);
+    if (cached) setEvents(cached);
     setLoading(true);
     try {
-      const evts = await fetchEventsForAccounts(ids, rangeStart.toISOString(), rangeEnd.toISOString());
+      const evts = await fetchEventsForAccounts(ids, timeMin, timeMax);
       setEvents(evts);
     } catch {
-      setEvents([]);
+      if (!cached) setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -270,7 +284,7 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
         </div>
 
         <div className="synod-cal__reminder">
-          <Clock size={13} strokeWidth={1.5} />
+          <ParticleNavIcon shape="reminder" size={14} />
           <select
             className="synod-cal__reminder-select"
             value={reminderMins}
@@ -300,7 +314,24 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
               <ChevronRight size={16} strokeWidth={1.5} />
             </button>
             <h1 className="synod-cal__header-label">{headerLabel}</h1>
+            <CalendarSearch
+              events={filteredEvents}
+              onNavigate={(ev) => {
+                setAnchor(new Date(ev.start));
+                setViewMode('day');
+                setPopupEvent(ev);
+                setPopupPosition(null);
+              }}
+            />
           </div>
+          <button
+            type="button"
+            className="synod-cal__add-event-btn"
+            onClick={() => setEditorState({ mode: 'create', date: new Date(anchor) })}
+            aria-label="Add event"
+          >
+            +
+          </button>
           <div className="synod-cal__view-switcher">
             {(['month', 'week', 'day'] as const).map((m) => (
               <button
@@ -329,6 +360,12 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
                 setAnchor(d);
                 setViewMode('day');
               }}
+              onNewEventClick={(d) => setEditorState({ mode: 'create', date: d })}
+              onEventClick={(ev, e) => {
+                e.stopPropagation();
+                setPopupEvent(ev);
+                setPopupPosition({ x: e.clientX, y: e.clientY });
+              }}
             />
           )}
 
@@ -338,6 +375,11 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
               events={filteredEvents}
               today={today}
               accounts={accounts}
+              onEventClick={(ev, e) => {
+                e.stopPropagation();
+                setPopupEvent(ev);
+                setPopupPosition({ x: e.clientX, y: e.clientY });
+              }}
             />
           )}
 
@@ -347,10 +389,50 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
               events={filteredEvents}
               today={today}
               accounts={accounts}
+              onEventClick={(ev, e) => {
+                e.stopPropagation();
+                setPopupEvent(ev);
+                setPopupPosition({ x: e.clientX, y: e.clientY });
+              }}
             />
           )}
         </div>
       </div>
+
+      {popupEvent && (
+        <EventPopup
+          event={popupEvent}
+          position={popupPosition}
+          accounts={accounts}
+          onClose={() => {
+            setPopupEvent(null);
+            setPopupPosition(null);
+          }}
+          onEdit={(ev) => {
+            setPopupEvent(null);
+            setPopupPosition(null);
+            setEditorState({ mode: 'edit', event: ev });
+          }}
+        />
+      )}
+
+      {editorState && (() => {
+        const firstAccountId = accounts.length > 0 ? accounts[0].id : undefined;
+        const calendarId = editorState.mode === 'edit' ? (editorState.event.calendarId ?? 'primary') : 'primary';
+        const accountId = editorState.mode === 'edit' ? editorState.event.accountId ?? firstAccountId : firstAccountId;
+        return (
+          <EventEditor
+            mode={editorState.mode}
+            initialDate={editorState.mode === 'create' ? editorState.date : undefined}
+            initialEvent={editorState.mode === 'edit' ? editorState.event : undefined}
+            accountId={accountId}
+            calendarId={calendarId}
+            onClose={() => setEditorState(null)}
+            onSaved={() => loadEvents()}
+            onDeleted={() => loadEvents()}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -421,6 +503,8 @@ function MonthGrid({
   currentMonth,
   accounts,
   onDayClick,
+  onNewEventClick,
+  onEventClick,
 }: {
   weeks: Date[][];
   events: CalendarEvent[];
@@ -428,6 +512,8 @@ function MonthGrid({
   currentMonth: number;
   accounts: AccountEntry[];
   onDayClick: (d: Date) => void;
+  onNewEventClick?: (d: Date) => void;
+  onEventClick?: (ev: CalendarEvent, e: React.MouseEvent) => void;
 }) {
   return (
     <div className="month-grid">
@@ -452,6 +538,9 @@ function MonthGrid({
                     isOther && 'month-grid__cell--other',
                   ].filter(Boolean).join(' ')}
                   onClick={() => onDayClick(day)}
+                  onDoubleClick={() => {
+                    if (dayEvents.length === 0) onNewEventClick?.(day);
+                  }}
                 >
                   <span className="month-grid__date">{day.getDate()}</span>
                   <div className="month-grid__events">
@@ -461,6 +550,7 @@ function MonthGrid({
                         className="month-grid__event"
                         style={{ '--ev-color': accountColor(accounts, ev.accountId) } as React.CSSProperties}
                         title={`${formatEventTime(ev)} ${ev.summary}`}
+                        onClick={(e) => onEventClick?.(ev, e)}
                       >
                         <span className="month-grid__event-dot" />
                         <span className="month-grid__event-text">{ev.summary}</span>
@@ -487,11 +577,13 @@ function WeekGrid({
   events,
   today,
   accounts,
+  onEventClick,
 }: {
   days: Date[];
   events: CalendarEvent[];
   today: Date;
   accounts: AccountEntry[];
+  onEventClick?: (ev: CalendarEvent, e: React.MouseEvent) => void;
 }) {
   return (
     <div className="week-grid">
@@ -535,6 +627,7 @@ function WeekGrid({
                       '--ev-color': accountColor(accounts, ev.accountId),
                     } as React.CSSProperties}
                     title={`${ev.summary}\n${formatEventTime(ev)}`}
+                    onClick={(e) => onEventClick?.(ev, e)}
                   >
                     <span className="week-grid__event-title">{ev.summary}</span>
                     <span className="week-grid__event-time">{formatEventTime(ev)}</span>
@@ -555,11 +648,13 @@ function DayGrid({
   day,
   events,
   accounts,
+  onEventClick,
 }: {
   day: Date;
   events: CalendarEvent[];
   today?: Date;
   accounts: AccountEntry[];
+  onEventClick?: (ev: CalendarEvent, e: React.MouseEvent) => void;
 }) {
   const dayEvts = eventsForDay(events, day);
   const allDay = dayEvts.filter((e) => e.isAllDay);
@@ -574,6 +669,7 @@ function DayGrid({
               key={ev.id}
               className="day-grid__allday-event"
               style={{ '--ev-color': accountColor(accounts, ev.accountId) } as React.CSSProperties}
+              onClick={(e) => onEventClick?.(ev, e)}
             >
               {ev.summary}
             </div>
@@ -604,6 +700,7 @@ function DayGrid({
                   height: `${(durMin / 1440) * 100}%`,
                   '--ev-color': accountColor(accounts, ev.accountId),
                 } as React.CSSProperties}
+                onClick={(e) => onEventClick?.(ev, e)}
               >
                 <span className="day-grid__event-title">{ev.summary}</span>
                 <span className="day-grid__event-time">{formatEventTime(ev)}</span>

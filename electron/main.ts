@@ -22,7 +22,7 @@ import {
 } from './gmail';
 import { getThreadListFromDb, getThreadFromDb, searchThreadsLocal } from './mailCache';
 import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
-import { listEvents, listEventsRange, listCalendars, respondToEvent } from './calendar';
+import { listEvents, listEventsRange, listCalendars, respondToEvent, createEvent, updateEvent, deleteEvent } from './calendar';
 import { startReminderEngine } from './reminderEngine';
 import { keywordSearch, semanticSearch, hybridSearch, isSearchConfigured } from './search/searchService';
 import { getSubscriptionOverview, getSubscriptionTimeline } from './indexing/subscriptionAnalytics';
@@ -53,6 +53,9 @@ import {
   validateCalendarListEventsArgs,
   validateCalendarListEventsRangeArgs,
   validateCalendarRespondArgs,
+  validateCalendarCreateEventArgs,
+  validateCalendarUpdateEventArgs,
+  validateCalendarDeleteEventArgs,
   validateAccountId,
   validateAccountsReorder,
   validateReminderMinutes,
@@ -124,6 +127,10 @@ function createWindow(): void {
     }
   });
 
+  mainWindow.on('focus', () => {
+  mainWindow?.flashFrame(false);
+  mainWindow?.setOverlayIcon(null, '');
+});
   mainWindow.once('ready-to-show', () => {
     const win = mainWindow;
     mainWindow?.show();
@@ -160,6 +167,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.thoughtform.synod');
+  }
   Menu.setApplicationMenu(null);
   initDb();
   migrateSecretsFromPlaintext();
@@ -168,7 +178,7 @@ app.whenReady().then(() => {
   onSyncStatus((status) => {
     mainWindow?.webContents?.send('sync:status', status);
   });
-  startReminderEngine();
+  startReminderEngine(() => mainWindow);
   setupAutoUpdater();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -214,6 +224,12 @@ ipcMain.handle(
               if (fresh.threads.length > 0) {
                 persistThreads(effectiveId, fresh.threads, labelId as string);
                 mainWindow?.webContents?.send('threads:refreshed');
+                mainWindow?.flashFrame(true);
+                mainWindow?.webContents?.send('notification:show', {
+                  type: 'mail',
+                  title: 'New mail',
+                  body: fresh.threads.length === 1 ? '1 new message' : `${fresh.threads.length} new messages`,
+                });
               }
             })
             .catch(() => {});
@@ -461,6 +477,27 @@ ipcMain.handle(
     );
   }
 );
+ipcMain.handle('calendar:createEvent', (_event, accountId: unknown, calendarId: unknown, event: unknown) => {
+  if (!validateCalendarCreateEventArgs(accountId, calendarId, event)) throw new Error('Invalid calendar:createEvent args');
+  return createEvent(
+    accountId as string | undefined,
+    calendarId as string,
+    event as Parameters<typeof createEvent>[2]
+  );
+});
+ipcMain.handle('calendar:updateEvent', (_event, accountId: unknown, calendarId: unknown, eventId: unknown, event: unknown) => {
+  if (!validateCalendarUpdateEventArgs(accountId, calendarId, eventId, event)) throw new Error('Invalid calendar:updateEvent args');
+  return updateEvent(
+    accountId as string | undefined,
+    calendarId as string,
+    eventId as string,
+    event as Parameters<typeof updateEvent>[3]
+  );
+});
+ipcMain.handle('calendar:deleteEvent', (_event, accountId: unknown, calendarId: unknown, eventId: unknown) => {
+  if (!validateCalendarDeleteEventArgs(accountId, calendarId, eventId)) throw new Error('Invalid calendar:deleteEvent args');
+  return deleteEvent(accountId as string | undefined, calendarId as string, eventId as string);
+});
 
 // Accounts
 ipcMain.handle('accounts:list', () => {

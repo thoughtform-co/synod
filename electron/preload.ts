@@ -74,6 +74,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('calendar:listEventsRange', accountId, timeMin, timeMax),
     respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined', calendarId?: string) =>
       ipcRenderer.invoke('calendar:respondToEvent', accountId, eventId, response, calendarId),
+    createEvent: (accountId: string | undefined, calendarId: string, event: { summary?: string; start: string; end: string; isAllDay?: boolean; location?: string; description?: string; attendees?: string[]; recurrence?: string[]; reminderMinutes?: number }) =>
+      ipcRenderer.invoke('calendar:createEvent', accountId, calendarId, event),
+    updateEvent: (accountId: string | undefined, calendarId: string, eventId: string, event: { summary?: string; start: string; end: string; isAllDay?: boolean; location?: string; description?: string; attendees?: string[]; recurrence?: string[]; reminderMinutes?: number }) =>
+      ipcRenderer.invoke('calendar:updateEvent', accountId, calendarId, eventId, event),
+    deleteEvent: (accountId: string | undefined, calendarId: string, eventId: string) =>
+      ipcRenderer.invoke('calendar:deleteEvent', accountId, calendarId, eventId),
   },
   reminder: {
     getMinutes: () => ipcRenderer.invoke('reminder:getMinutes'),
@@ -97,6 +103,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('threads:refreshed', fn);
       return () => {
         ipcRenderer.removeListener('threads:refreshed', fn);
+      };
+    },
+  },
+  notifications: {
+    onShow: (callback: (payload: { type: string; title: string; body: string }) => void) => {
+      const fn = (_: unknown, payload: { type: string; title: string; body: string }) => callback(payload);
+      ipcRenderer.on('notification:show', fn);
+      return () => {
+        ipcRenderer.removeListener('notification:show', fn);
       };
     },
   },

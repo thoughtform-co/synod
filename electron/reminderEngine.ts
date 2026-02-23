@@ -1,4 +1,6 @@
 import { Notification } from 'electron';
+import path from 'path';
+import { app } from 'electron';
 import { getDb } from './db';
 import { listEvents } from './calendar';
 import { safeParse } from './safeJson';
@@ -42,7 +44,18 @@ function markNotified(eventId: string): void {
   setStoredJson(db, NOTIFIED_KEY, arr);
 }
 
-export function startReminderEngine(): void {
+function getNotificationIcon(): string | undefined {
+  try {
+    const iconPath = path.join(app.getAppPath(), 'public', 'icon.png');
+    const fs = require('fs');
+    if (fs.existsSync(iconPath)) return iconPath;
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
+export function startReminderEngine(getMainWindow: () => import('electron').BrowserWindow | null): void {
   function tick(): void {
     const db = getDb();
     if (!db) return;
@@ -63,14 +76,31 @@ export function startReminderEngine(): void {
           if (start < now || start > windowEnd) continue;
           if (notified.has(ev.id)) continue;
           if (!Notification.isSupported()) continue;
+          const icon = getNotificationIcon();
           const n = new Notification({
             title: ev.summary,
             body: ev.isAllDay
               ? 'All day'
               : `${new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – ${new Date(ev.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+            ...(icon ? { icon } : {}),
+          });
+          n.on('click', () => {
+            getMainWindow()?.show();
+            getMainWindow()?.focus();
           });
           n.show();
           markNotified(ev.id);
+          const win = getMainWindow();
+          if (win?.webContents && !win.isDestroyed()) {
+            win.webContents.send('notification:show', {
+              type: 'reminder',
+              title: ev.summary,
+              body: ev.isAllDay
+                ? 'All day'
+                : `${new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – ${new Date(ev.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+            });
+            win.flashFrame(true);
+          }
         }
       })
       .catch(() => {});

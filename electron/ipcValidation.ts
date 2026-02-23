@@ -263,6 +263,51 @@ export function validateCalendarRespondArgs(
   return CALENDAR_RESPONSES.has(response as string);
 }
 
+function validCalendarId(v: unknown): boolean {
+  return typeof v === 'string' && v.length > 0 && v.length <= 256;
+}
+
+function validEventInput(event: unknown): event is { start: string; end: string; summary?: string; isAllDay?: boolean; location?: string; description?: string; attendees?: string[]; recurrence?: string[]; reminderMinutes?: number } {
+  if (!event || typeof event !== 'object') return false;
+  const o = event as Record<string, unknown>;
+  if (typeof o.start !== 'string' || o.start.length > 128) return false;
+  if (typeof o.end !== 'string' || o.end.length > 128) return false;
+  if (o.summary !== undefined && typeof o.summary !== 'string') return false;
+  if (o.isAllDay !== undefined && typeof o.isAllDay !== 'boolean') return false;
+  if (o.location !== undefined && typeof o.location !== 'string') return false;
+  if (o.description !== undefined && typeof o.description !== 'string') return false;
+  if (o.attendees !== undefined) {
+    if (!Array.isArray(o.attendees) || o.attendees.length > 100) return false;
+    if (!o.attendees.every((a: unknown) => typeof a === 'string' && a.length <= 256)) return false;
+  }
+  if (o.recurrence !== undefined) {
+    if (!Array.isArray(o.recurrence) || o.recurrence.length > 20) return false;
+    if (!o.recurrence.every((r: unknown) => typeof r === 'string' && r.length <= 256)) return false;
+  }
+  if (o.reminderMinutes !== undefined && (typeof o.reminderMinutes !== 'number' || o.reminderMinutes < 0 || o.reminderMinutes > 40320)) return false;
+  return true;
+}
+
+export function validateCalendarCreateEventArgs(accountId: unknown, calendarId: unknown, event: unknown): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (!validCalendarId(calendarId)) return false;
+  return validEventInput(event);
+}
+
+export function validateCalendarUpdateEventArgs(accountId: unknown, calendarId: unknown, eventId: unknown, event: unknown): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (!validCalendarId(calendarId)) return false;
+  if (typeof eventId !== 'string' || eventId.length === 0 || eventId.length > 256) return false;
+  return validEventInput(event);
+}
+
+export function validateCalendarDeleteEventArgs(accountId: unknown, calendarId: unknown, eventId: unknown): boolean {
+  if (!optionalAccountId(accountId)) return false;
+  if (!validCalendarId(calendarId)) return false;
+  if (typeof eventId !== 'string' || eventId.length === 0 || eventId.length > 256) return false;
+  return true;
+}
+
 export function validateAccountsReorder(orderedIds: unknown): orderedIds is string[] {
   if (!Array.isArray(orderedIds) || orderedIds.length > MAX_ORDERED_IDS) return false;
   return orderedIds.every((id) => typeof id === 'string' && id.length <= MAX_ACCOUNT_ID_LEN);

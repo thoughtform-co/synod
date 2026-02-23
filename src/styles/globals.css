@@ -1929,6 +1929,33 @@ li:first-child > .thread-list__section-header {
   border-top: 1px solid var(--dawn-08);
 }
 
+.thread-view__attachment-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.thread-view__attachment-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: var(--dawn-50);
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-08);
+  cursor: pointer;
+}
+
+.thread-view__attachment-download-btn:hover:not(:disabled) {
+  color: var(--dawn);
+  border-color: var(--dawn-15);
+}
+
+.thread-view__attachment-download-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .thread-view__attachment-chip {
   display: inline-flex;
   align-items: center;
@@ -2496,6 +2523,139 @@ li:first-child > .thread-list__section-header {
   margin-left: var(--space-xs);
 }
 
+.synod-cal__search {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: var(--space-md);
+}
+
+.synod-cal__search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 180px;
+  max-width: 260px;
+  padding: 6px 10px;
+  border: 1px solid var(--dawn-08);
+  background: var(--surface-1);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.synod-cal__search-bar:focus-within {
+  border-color: var(--dawn-15);
+}
+
+.synod-cal__search-icon {
+  flex-shrink: 0;
+  color: var(--dawn-30);
+}
+
+.synod-cal__search-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--dawn);
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.synod-cal__search-input::placeholder {
+  color: var(--dawn-30);
+}
+
+.synod-cal__search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  color: var(--dawn-30);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.synod-cal__search-clear:hover {
+  color: var(--dawn);
+}
+
+.synod-cal__search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: 240px;
+  max-height: 280px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-xs);
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+
+.synod-cal__search-empty {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.8125rem;
+  color: var(--dawn-50);
+}
+
+.synod-cal__search-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+
+.synod-cal__search-item:hover {
+  background: var(--dawn-08);
+  color: var(--dawn);
+}
+
+.synod-cal__search-item-title {
+  display: block;
+  font-weight: 500;
+  color: var(--dawn);
+  margin-bottom: 2px;
+}
+
+.synod-cal__search-item-meta {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-50);
+}
+
+.synod-cal__add-event-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--dawn-70);
+  background: none;
+  border: 1px solid var(--dawn-08);
+  cursor: pointer;
+  margin-right: var(--space-xs);
+}
+
+.synod-cal__add-event-btn:hover {
+  color: var(--gold);
+  border-color: var(--dawn-15);
+}
+
 .synod-cal__view-switcher {
   display: flex;
   border: 1px solid var(--dawn-08);
@@ -2526,6 +2686,389 @@ li:first-child > .thread-list__section-header {
 .synod-cal__view-btn--active {
   color: var(--gold);
   background: var(--gold-10);
+}
+
+/* ── Event popup ── */
+.synod-cal__event-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: transparent;
+}
+
+.synod-cal__event-popup {
+  position: fixed;
+  z-index: 101;
+  width: 320px;
+  max-width: calc(100vw - var(--space-lg) * 2);
+  max-height: 80vh;
+  padding: var(--space-md);
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-md);
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.synod-cal__event-popup-close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: var(--dawn-50);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.synod-cal__event-popup-close:hover {
+  color: var(--dawn);
+}
+
+.synod-cal__event-popup-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dawn);
+  margin: 0 24px 0 0;
+  padding-right: var(--space-md);
+}
+
+.synod-cal__event-popup-datetime {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--dawn-70);
+  margin: var(--space-xs) 0 0;
+}
+
+.synod-cal__event-popup-location {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  margin: var(--space-sm) 0 0;
+}
+
+.synod-cal__event-popup-loc-icon {
+  flex-shrink: 0;
+  color: var(--dawn-50);
+}
+
+.synod-cal__event-popup-description {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--dawn-08);
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.synod-cal__event-popup-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--dawn-50);
+}
+
+.synod-cal__event-popup-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.synod-cal__event-popup-calendar {
+  font-family: var(--font-mono);
+}
+
+.synod-cal__event-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--dawn-08);
+}
+
+.synod-cal__event-popup-rsvp {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.synod-cal__event-popup-rsvp-btn {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-1);
+  color: var(--dawn-70);
+  cursor: pointer;
+  transition: color 120ms, background 120ms, border-color 120ms;
+}
+
+.synod-cal__event-popup-rsvp-btn:hover:not(:disabled) {
+  color: var(--dawn);
+  border-color: var(--dawn-30);
+}
+
+.synod-cal__event-popup-rsvp-btn--yes:hover:not(:disabled),
+.synod-cal__event-popup-rsvp-btn--yes.synod-cal__event-popup-rsvp-btn--active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--gold-10);
+}
+
+.synod-cal__event-popup-edit {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dawn-70);
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.synod-cal__event-popup-edit:hover {
+  color: var(--gold);
+}
+
+/* ── Event editor overlay ── */
+.synod-cal__editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 102;
+  background: var(--dawn-15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.synod-cal__editor {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-15);
+  box-shadow: var(--shadow-md);
+  border-radius: 0;
+}
+
+.synod-cal__editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--dawn-08);
+}
+
+.synod-cal__editor-title {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--dawn);
+  margin: 0;
+}
+
+.synod-cal__editor-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: var(--dawn-50);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.synod-cal__editor-close:hover {
+  color: var(--dawn);
+}
+
+.synod-cal__editor-body {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.synod-cal__editor-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--dawn-70);
+}
+
+.synod-cal__editor-label--row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.synod-cal__editor-input,
+.synod-cal__editor-select,
+.synod-cal__editor-textarea {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--dawn);
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-08);
+  padding: 6px 10px;
+  border-radius: 0;
+}
+
+.synod-cal__editor-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.synod-cal__editor-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.synod-cal__editor-date-time {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.synod-cal__editor-date-time .synod-cal__editor-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.synod-cal__editor-attendees {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.synod-cal__editor-attendees .synod-cal__editor-input {
+  flex: 1;
+}
+
+.synod-cal__editor-chip-btn {
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-1);
+  color: var(--dawn-70);
+  cursor: pointer;
+}
+
+.synod-cal__editor-chip-btn:hover {
+  color: var(--dawn);
+}
+
+.synod-cal__editor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.synod-cal__editor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  background: var(--dawn-08);
+  color: var(--dawn-70);
+}
+
+.synod-cal__editor-chip-remove {
+  display: flex;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--dawn-50);
+  cursor: pointer;
+}
+
+.synod-cal__editor-chip-remove:hover {
+  color: var(--dawn);
+}
+
+.synod-cal__editor-error {
+  font-size: 0.8125rem;
+  color: var(--error, #c00);
+  margin: 0;
+}
+
+.synod-cal__editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--dawn-08);
+}
+
+.synod-cal__editor-actions-right {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.synod-cal__editor-cancel {
+  font-size: 0.8125rem;
+  padding: 6px 12px;
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-1);
+  color: var(--dawn-70);
+  cursor: pointer;
+}
+
+.synod-cal__editor-cancel:hover {
+  color: var(--dawn);
+}
+
+.synod-cal__editor-save {
+  font-size: 0.8125rem;
+  padding: 6px 12px;
+  border: 1px solid var(--gold);
+  background: var(--gold-10);
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.synod-cal__editor-save:hover:not(:disabled) {
+  background: var(--gold-15);
+}
+
+.synod-cal__editor-save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.synod-cal__editor-delete {
+  font-size: 0.8125rem;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  color: var(--dawn-50);
+  cursor: pointer;
+}
+
+.synod-cal__editor-delete:hover:not(:disabled) {
+  color: var(--error, #c00);
 }
 
 /* ── Grid wrapper ── */
@@ -2944,6 +3487,197 @@ li:first-child > .thread-list__section-header {
 ::selection {
   background: rgba(202, 165, 84, 0.4);
   color: var(--void);
+}
+
+/* ─── In-app toasts ─── */
+.synod-toast-container {
+  position: fixed;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.synod-toast-container > * {
+  pointer-events: auto;
+}
+
+.synod-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-md);
+  border-radius: 0;
+  transform: translateX(calc(100% + var(--space-lg)));
+  opacity: 0;
+  transition: transform 200ms var(--ease-out), opacity 200ms;
+}
+
+.synod-toast--visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.synod-toast__icon {
+  flex-shrink: 0;
+  color: var(--gold);
+}
+
+.synod-toast__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.synod-toast__title {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--dawn);
+  margin: 0 0 2px;
+}
+
+.synod-toast__body {
+  font-size: 0.75rem;
+  color: var(--dawn-70);
+  margin: 0 0 2px;
+}
+
+.synod-toast__time {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--dawn-50);
+}
+
+.synod-toast__close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  color: var(--dawn-50);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.synod-toast__close:hover {
+  color: var(--dawn);
+}
+
+/* ─── Attachment preview ─── */
+.synod-attachment-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--dawn-30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.synod-attachment-preview {
+  width: 100%;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-15);
+  box-shadow: var(--shadow-md);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.synod-attachment-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--dawn-08);
+  flex-shrink: 0;
+}
+
+.synod-attachment-preview__meta {
+  min-width: 0;
+}
+
+.synod-attachment-preview__filename {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--dawn);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.synod-attachment-preview__size {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-50);
+}
+
+.synod-attachment-preview__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.synod-attachment-preview__download,
+.synod-attachment-preview__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  color: var(--dawn-70);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.synod-attachment-preview__download:hover:not(:disabled),
+.synod-attachment-preview__close:hover {
+  color: var(--dawn);
+}
+
+.synod-attachment-preview__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  overflow: auto;
+}
+
+.synod-attachment-preview__loading,
+.synod-attachment-preview__error {
+  font-size: 0.8125rem;
+  color: var(--dawn-70);
+  margin: 0;
+}
+
+.synod-attachment-preview__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.synod-attachment-preview__iframe {
+  width: 100%;
+  height: 70vh;
+  min-height: 400px;
+  border: none;
+  background: #fff;
 }
 
 /* ─── Scrollbar ─── */

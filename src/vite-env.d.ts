@@ -52,7 +52,10 @@ interface ElectronAPI {
     listCalendars: (accountId: string | undefined) => Promise<{ id: string; summary: string; backgroundColor?: string; selected: boolean }[]>;
     listEvents: (accountId: string | undefined, daysAhead?: number) => Promise<CalendarEvent[]>;
     listEventsRange: (accountId: string | undefined, timeMin: string, timeMax: string) => Promise<CalendarEvent[]>;
-    respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined') => Promise<void>;
+    respondToEvent: (accountId: string | undefined, eventId: string, response: 'accepted' | 'tentative' | 'declined', calendarId?: string) => Promise<void>;
+    createEvent: (accountId: string | undefined, calendarId: string, event: CalendarEventInput) => Promise<CalendarEvent>;
+    updateEvent: (accountId: string | undefined, calendarId: string, eventId: string, event: CalendarEventInput) => Promise<CalendarEvent>;
+    deleteEvent: (accountId: string | undefined, calendarId: string, eventId: string) => Promise<void>;
   };
   reminder: {
     getMinutes: () => Promise<number>;
@@ -66,6 +69,9 @@ interface ElectronAPI {
   sync?: {
     onStatus: (callback: (status: SyncStatus) => void) => () => void;
     onThreadsRefreshed: (callback: () => void) => () => void;
+  };
+  notifications?: {
+    onShow: (callback: (payload: { type: string; title: string; body: string }) => void) => () => void;
   };
   search?: {
     isConfigured: () => Promise<boolean>;
@@ -142,6 +148,18 @@ export interface CalendarEvent {
   location?: string;
   description?: string;
   calendarId?: string;
+}
+
+export interface CalendarEventInput {
+  summary?: string;
+  start: string;
+  end: string;
+  isAllDay?: boolean;
+  location?: string;
+  description?: string;
+  attendees?: string[];
+  recurrence?: string[];
+  reminderMinutes?: number;
 }
 
 export interface GmailAttachment {

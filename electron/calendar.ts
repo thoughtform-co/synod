@@ -190,6 +190,136 @@ export function listEventsRange(
 
 export type RsvpResponse = 'accepted' | 'tentative' | 'declined';
 
+/** Payload for creating or updating an event (Google Calendar API event resource subset). */
+export interface CalendarEventInput {
+  summary?: string;
+  start: string; // ISO dateTime or date
+  end: string;
+  isAllDay?: boolean;
+  location?: string;
+  description?: string;
+  attendees?: string[];
+  recurrence?: string[];
+  reminderMinutes?: number;
+}
+
+function toApiStartEnd(isAllDay: boolean, start: string, end: string) {
+  if (isAllDay) {
+    const startDate = start.includes('T') ? start.slice(0, 10) : start;
+    const endDate = end.includes('T') ? end.slice(0, 10) : end;
+    return { start: { date: startDate }, end: { date: endDate } };
+  }
+  return { start: { dateTime: start }, end: { dateTime: end } };
+}
+
+export function createEvent(
+  accountId: string | undefined,
+  calendarId: string,
+  event: CalendarEventInput
+): Promise<CalendarEvent> {
+  return withRetry(async () => {
+    const calendar = getCalendarClient(accountId);
+    const isAllDay = event.isAllDay ?? !event.start.includes('T');
+    const { start, end } = toApiStartEnd(isAllDay, event.start, event.end);
+    const requestBody: import('googleapis').calendar_v3.Schema$Event = {
+      summary: event.summary ?? '',
+      start,
+      end,
+      location: event.location ?? undefined,
+      description: event.description ?? undefined,
+      attendees: event.attendees?.length
+        ? event.attendees.map((email) => ({ email }))
+        : undefined,
+      recurrence: event.recurrence?.length ? event.recurrence : undefined,
+      reminders:
+        event.reminderMinutes != null
+          ? { useDefault: false, overrides: [{ method: 'popup', minutes: event.reminderMinutes }] }
+          : undefined,
+    };
+    const res = await calendar.events.insert({
+      calendarId: calendarId || 'primary',
+      requestBody,
+    });
+    const created = res.data;
+    if (!created.id || !created.start || !created.end) throw new Error('Invalid create response');
+    const startStr = created.start.dateTime || created.start.date ?? '';
+    const endStr = created.end.dateTime || created.end.date ?? '';
+    return {
+      id: created.id,
+      summary: created.summary ?? '(No title)',
+      start: startStr,
+      end: endStr,
+      isAllDay: !created.start.dateTime,
+      location: created.location ?? undefined,
+      description: created.description ?? undefined,
+      calendarId: calendarId || 'primary',
+    };
+  });
+}
+
+export function updateEvent(
+  accountId: string | undefined,
+  calendarId: string,
+  eventId: string,
+  event: CalendarEventInput
+): Promise<CalendarEvent> {
+  return withRetry(async () => {
+    const calendar = getCalendarClient(accountId);
+    const isAllDay = event.isAllDay ?? !event.start.includes('T');
+    const { start, end } = toApiStartEnd(isAllDay, event.start, event.end);
+    const requestBody: import('googleapis').calendar_v3.Schema$Event = {
+      summary: event.summary ?? '',
+      start,
+      end,
+      location: event.location ?? undefined,
+      description: event.description ?? undefined,
+      attendees: event.attendees?.length
+        ? event.attendees.map((email) => ({ email }))
+        : undefined,
+      recurrence: event.recurrence?.length ? event.recurrence : undefined,
+      reminders:
+        event.reminderMinutes != null
+          ? { useDefault: false, overrides: [{ method: 'popup', minutes: event.reminderMinutes }] }
+          : undefined,
+    };
+    const res = await calendar.events.patch({
+      calendarId: calendarId || 'primary',
+      eventId,
+      requestBody,
+    });
+    const updated = res.data;
+    if (!updated.id || !updated.start || !updated.end) throw new Error('Invalid patch response');
+    const startStr = updated.start.dateTime || updated.start.date ?? '';
+    const endStr = updated.end.dateTime || updated.end.date ?? '';
+    return {
+      id: updated.id,
+      summary: updated.summary ?? '(No title)',
+      start: startStr,
+      end: endStr,
+      isAllDay: !updated.start.dateTime,
+      location: updated.location ?? undefined,
+      description: updated.description ?? undefined,
+      calendarId: calendarId || 'primary',
+    };
+  });
+}
+
+export function deleteEvent(
+  accountId: string | undefined,
+  calendarId: string,
+  eventId: string
+): Promise<void> {
+  return withRetry(() => {
+    const calendar = getCalendarClient(accountId);
+    return calendar.events
+      .delete({
+        calendarId: calendarId || 'primary',
+        eventId,
+      })
+      .then(() => undefined);
+  });
+}
+
 export function respondToEvent(
   accountId: string | undefined,
   eventId: string,

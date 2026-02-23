@@ -25,7 +25,10 @@ export type ParticleNavShapeKey =
   | 'sync'
   | 'embed'
   | 'reply'
-  | 'forward';
+  | 'forward'
+  | 'calendar'
+  | 'event'
+  | 'reminder';
 
 const R = 5; // nominal radius for 18px icon
 const GRID = 3;
@@ -441,6 +444,47 @@ function forwardPoints(): NavShapePoint[] {
   return buildIcon(skeleton, signal, 'forward');
 }
 
+/** Calendar: grid/frame motif — 4×4 dots with header line. */
+function calendarPoints(): NavShapePoint[] {
+  const header = axis('h', -R + 1, R - 1, 1.5, 0.9).map((p) => ({ ...p, y: -R }));
+  const grid: NavShapePoint[] = [];
+  const cell = GRID * 0.8;
+  const left = -R + 1.5;
+  const top = -R + 3;
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      grid.push({
+        x: left + col * cell,
+        y: top + row * cell,
+        alpha: 0.85,
+      });
+    }
+  }
+  const skeleton = merge(header, grid);
+  const signal = anchor({ y: -R }, 1);
+  return buildIcon(skeleton, signal, 'calendar');
+}
+
+/** Event: single waypoint inside a frame. */
+function eventPoints(): NavShapePoint[] {
+  const skeleton = frame(['tl', 'tr', 'bl', 'br'], R, 0.9);
+  const signal = anchor(undefined, 1);
+  return buildIcon(skeleton, signal, 'event');
+}
+
+/** Reminder: radiate pattern (bell-like, reuse updates approach). */
+function reminderPoints(): NavShapePoint[] {
+  const skeleton = merge(
+    [{ x: -1, y: -R, alpha: 1 }, { x: 0, y: -R, alpha: 1 }, { x: 1, y: -R, alpha: 1 }],
+    [{ x: -2, y: -R + 1, alpha: 0.9 }, { x: 2, y: -R + 1, alpha: 0.9 }],
+    [{ x: -R + 1, y: 0, alpha: 0.9 }, { x: R - 1, y: 0, alpha: 0.9 }],
+    [{ x: -1, y: R - 1, alpha: 0.9 }, { x: 0, y: R, alpha: 1 }, { x: 1, y: R - 1, alpha: 0.9 }],
+    radiate(0, -R, [0, -Math.PI * 0.2, Math.PI * 0.2], 1.5, 0.7)
+  );
+  const signal = anchor({ y: -R }, 1);
+  return buildIcon(skeleton, signal, 'reminder');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
@@ -461,6 +505,9 @@ const SHAPE_MAP: Record<ParticleNavShapeKey, () => NavShapePoint[]> = {
   embed: embedPoints,
   reply: replyPoints,
   forward: forwardPoints,
+  calendar: calendarPoints,
+  event: eventPoints,
+  reminder: reminderPoints,
 };
 
 export function getNavShape(key: ParticleNavShapeKey): NavShapePoint[] {
