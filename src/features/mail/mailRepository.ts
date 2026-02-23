@@ -1,4 +1,4 @@
-import { sanitizeHtml } from '@/lib/sanitizeHtml';
+import { sanitizeHtml, stripQuotedReply, stripQuotedReplyPlain } from '@/lib/sanitizeHtml';
 
 function getGmailAPI() {
   return typeof window !== 'undefined' ? window.electronAPI?.gmail : undefined;
@@ -137,18 +137,22 @@ export async function fetchThread(accountId: string | undefined, threadId: strin
   if (existing) return existing;
   const requestPromise = (async () => {
     const { id, messages } = await gmail.getThread(accountId, threadId);
-    const mappedMessages = messages.map((m) => ({
-      id: m.id,
-      from: m.from ?? '',
-      to: m.to ?? '',
-      subject: m.subject ?? '',
-      date: m.date ?? '',
-      bodyPlain: m.bodyPlain || m.snippet,
-      bodyHtml: m.bodyHtml ? sanitizeHtml(m.bodyHtml) : '',
-      snippet: m.snippet,
-      attachments: m.attachments,
-      calendarIcs: m.calendarIcs,
-    }));
+    const mappedMessages = messages.map((m) => {
+      const cleanHtml = m.bodyHtml ? stripQuotedReply(sanitizeHtml(m.bodyHtml)) : '';
+      const cleanPlain = m.bodyPlain ? stripQuotedReplyPlain(m.bodyPlain) : '';
+      return {
+        id: m.id,
+        from: m.from ?? '',
+        to: m.to ?? '',
+        subject: m.subject ?? '',
+        date: m.date ?? '',
+        bodyPlain: cleanPlain || m.snippet,
+        bodyHtml: cleanHtml,
+        snippet: m.snippet,
+        attachments: m.attachments,
+        calendarIcs: m.calendarIcs,
+      };
+    });
     const thread: ThreadDetail = { id, messages: mappedMessages };
     pruneThreadCache();
     const keyOrderIdx = threadCacheKeyOrder.indexOf(requestKey);

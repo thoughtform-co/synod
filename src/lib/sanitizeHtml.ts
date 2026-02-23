@@ -2,6 +2,65 @@ import DOMPurify from 'dompurify';
 
 const ALLOWED_LINK_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
 
+const QUOTE_HEADER_RE = /^(On .{10,80} wrote:|Van:|From:|Verzonden:|Sent:|Aan:|To:|Onderwerp:|Subject:|CC:|Date:|Datum:)/m;
+
+/**
+ * Strip quoted reply chains from HTML email bodies.
+ * Removes Gmail quote divs, Outlook-style "From:/Sent:" blocks, and "> " prefixed lines.
+ */
+export function stripQuotedReply(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  doc.querySelectorAll('.gmail_quote, .gmail_extra, .yahoo_quoted, [name="quote"]').forEach((el) => el.remove());
+
+  doc.querySelectorAll('blockquote').forEach((bq) => {
+    const prev = bq.previousElementSibling;
+    if (prev && QUOTE_HEADER_RE.test(prev.textContent ?? '')) prev.remove();
+    bq.remove();
+  });
+
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const el = node as HTMLElement;
+    const text = el.textContent?.trim() ?? '';
+    if (QUOTE_HEADER_RE.test(text) && el.children.length === 0) {
+      let sibling = el.nextElementSibling;
+      while (sibling) {
+        const next = sibling.nextElementSibling;
+        sibling.remove();
+        sibling = next;
+      }
+      el.remove();
+      break;
+    }
+  }
+
+  return doc.body.innerHTML;
+}
+
+/**
+ * Strip quoted reply chains from plain-text email bodies.
+ */
+export function stripQuotedReplyPlain(text: string): string {
+  const lines = text.split('\n');
+  let cutIndex = lines.length;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (QUOTE_HEADER_RE.test(line)) {
+      cutIndex = i;
+      break;
+    }
+    if (line.startsWith('>') && i > 0 && lines.slice(i, i + 3).every((l) => l.trim().startsWith('>'))) {
+      cutIndex = i;
+      break;
+    }
+  }
+
+  return lines.slice(0, cutIndex).join('\n').trimEnd();
+}
+
 /**
  * Sanitize HTML for safe email body rendering.
  * Strict policy: no scripts, no unsafe styles, block remote tracking.

@@ -362,6 +362,15 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDone
       if (isFocusInEditable()) return;
       const key = e.key.toUpperCase();
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setExpandedIds((prev) => {
+          if (prev.size === 0) return prev;
+          const last = thread?.messages[thread.messages.length - 1]?.id;
+          return last ? new Set([last]) : new Set();
+        });
+        return;
+      }
       switch (key) {
         case 'E':
           e.preventDefault();
