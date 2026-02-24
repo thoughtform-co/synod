@@ -85,7 +85,7 @@ export function validateGmailGetThreadArgs(accountId: unknown, threadId: unknown
 }
 
 const MAX_MESSAGE_ID_LEN = 128;
-const MAX_ATTACHMENT_ID_LEN = 256;
+const MAX_ATTACHMENT_ID_LEN = 2048;
 const MAX_DRAFT_ID_LEN = 128;
 const MAX_EMAIL_HEADER_LEN = 2048;
 const MAX_ATTACHMENTS = 20;
@@ -342,4 +342,38 @@ export function validateSubscriptionOverviewArgs(accountIds: unknown): boolean {
   if (!Array.isArray(accountIds)) return false;
   if (accountIds.length > MAX_ORDERED_IDS) return false;
   return accountIds.every((id) => typeof id === 'string' && id.length <= MAX_ACCOUNT_ID_LEN);
+}
+
+// Claude API
+const MAX_CLAUDE_EMAIL_BODY = 60000;
+const MAX_CLAUDE_IMAGE_B64 = 6 * 1024 * 1024; // 6MB
+const MAX_DASHBOARD_PAYLOAD = 70000;
+
+export function validateClaudeAnalyzeEmailArgs(subject: unknown, bodyText: unknown): boolean {
+  if (typeof subject !== 'string' || subject.length > 2048) return false;
+  if (typeof bodyText !== 'string' || bodyText.length > MAX_CLAUDE_EMAIL_BODY) return false;
+  return true;
+}
+
+export function validateClaudeExtractEventFromImageArgs(
+  imageBase64: unknown,
+  mediaType: unknown
+): boolean {
+  if (typeof imageBase64 !== 'string' || imageBase64.length === 0 || imageBase64.length > MAX_CLAUDE_IMAGE_B64)
+    return false;
+  const allowed = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+  return typeof mediaType === 'string' && allowed.has(mediaType);
+}
+
+export function validateClaudeDashboardInsightsArgs(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const s = JSON.stringify(payload);
+  return s.length <= MAX_DASHBOARD_PAYLOAD;
+}
+
+// ICS parser
+const MAX_ICS_LEN = 512 * 1024; // 512KB
+
+export function validateIcsParseArgs(icsText: unknown): boolean {
+  return typeof icsText === 'string' && icsText.length > 0 && icsText.length <= MAX_ICS_LEN;
 }

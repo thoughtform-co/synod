@@ -11,12 +11,18 @@ import {
 import type { AccountEntry, AccountsListResult } from '@/vite-env.d';
 import { CalendarSearch } from './CalendarSearch';
 import { EventPopup } from './EventPopup';
-import { EventEditor } from './EventEditor';
+import { EventEditor, type EventEditorPrefill } from './EventEditor';
+import { PendingInvitesFeed } from './PendingInvitesFeed';
 
 export type CalViewMode = 'month' | 'week' | 'day';
 
 interface CalendarViewProps {
   accountsResult: AccountsListResult | null;
+  /** When set, open create editor with this prefill (e.g. from mail InviteCard). */
+  eventPrefill?: EventEditorPrefill | null;
+  onConsumePrefill?: () => void;
+  /** When user clicks a pending invite in the feed, switch to mail and select this thread. */
+  onOpenInvite?: (threadId: string) => void;
 }
 
 const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -107,7 +113,7 @@ function accountColor(accounts: AccountEntry[], accountId?: string): string {
   return ACCOUNT_COLORS[idx >= 0 ? idx % ACCOUNT_COLORS.length : 0];
 }
 
-export function CalendarView({ accountsResult }: CalendarViewProps) {
+export function CalendarView({ accountsResult, eventPrefill, onConsumePrefill, onOpenInvite }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<CalViewMode>('month');
   const [anchor, setAnchor] = useState(() => new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -117,8 +123,16 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
   const [popupEvent, setPopupEvent] = useState<CalendarEvent | null>(null);
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorState, setEditorState] = useState<
-    { mode: 'create'; date: Date } | { mode: 'edit'; event: CalendarEvent } | null
+    { mode: 'create'; date: Date; prefill?: EventEditorPrefill } | { mode: 'edit'; event: CalendarEvent } | null
   >(null);
+
+  useEffect(() => {
+    if (eventPrefill && onConsumePrefill) {
+      const date = new Date(eventPrefill.startDate + 'T12:00:00');
+      setEditorState({ mode: 'create', date, prefill: eventPrefill });
+      onConsumePrefill();
+    }
+  }, [eventPrefill, onConsumePrefill]);
 
   const accounts = accountsResult?.accounts ?? [];
   const today = useMemo(() => {
@@ -283,6 +297,13 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
           )}
         </div>
 
+        {onOpenInvite && (
+          <PendingInvitesFeed
+            accountIds={Array.from(enabledAccounts)}
+            onSelectThread={onOpenInvite}
+          />
+        )}
+
         <div className="synod-cal__reminder">
           <ParticleNavIcon shape="reminder" size={14} />
           <select
@@ -307,13 +328,28 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
             <button className="synod-cal__today-btn" onClick={() => setAnchor(new Date())}>
               Today
             </button>
+            <div className="synod-cal__view-switcher">
+              {(['month', 'week', 'day'] as const).map((m) => (
+                <button
+                  key={m}
+                  className={`synod-cal__view-btn ${viewMode === m ? 'synod-cal__view-btn--active' : ''}`}
+                  onClick={() => setViewMode(m)}
+                >
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="synod-cal__toolbar-center">
             <button className="synod-cal__nav-btn" onClick={() => navigate(-1)} aria-label="Previous">
               <ChevronLeft size={16} strokeWidth={1.5} />
             </button>
+            <h1 className="synod-cal__header-label">{headerLabel}</h1>
             <button className="synod-cal__nav-btn" onClick={() => navigate(1)} aria-label="Next">
               <ChevronRight size={16} strokeWidth={1.5} />
             </button>
-            <h1 className="synod-cal__header-label">{headerLabel}</h1>
+          </div>
+          <div className="synod-cal__toolbar-right">
             <CalendarSearch
               events={filteredEvents}
               onNavigate={(ev) => {
@@ -323,25 +359,14 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
                 setPopupPosition(null);
               }}
             />
-          </div>
-          <button
-            type="button"
-            className="synod-cal__add-event-btn"
-            onClick={() => setEditorState({ mode: 'create', date: new Date(anchor) })}
-            aria-label="Add event"
-          >
-            +
-          </button>
-          <div className="synod-cal__view-switcher">
-            {(['month', 'week', 'day'] as const).map((m) => (
-              <button
-                key={m}
-                className={`synod-cal__view-btn ${viewMode === m ? 'synod-cal__view-btn--active' : ''}`}
-                onClick={() => setViewMode(m)}
-              >
-                {m.charAt(0).toUpperCase() + m.slice(1)}
-              </button>
-            ))}
+            <button
+              type="button"
+              className="synod-cal__add-event-btn"
+              onClick={() => setEditorState({ mode: 'create', date: new Date(anchor) })}
+              aria-label="Add event"
+            >
+              +
+            </button>
           </div>
         </header>
 
@@ -425,6 +450,7 @@ export function CalendarView({ accountsResult }: CalendarViewProps) {
             mode={editorState.mode}
             initialDate={editorState.mode === 'create' ? editorState.date : undefined}
             initialEvent={editorState.mode === 'edit' ? editorState.event : undefined}
+            initialPrefill={editorState.mode === 'create' ? editorState.prefill : undefined}
             accountId={accountId}
             calendarId={calendarId}
             onClose={() => setEditorState(null)}

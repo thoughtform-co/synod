@@ -109,3 +109,36 @@ export function startReminderEngine(getMainWindow: () => import('electron').Brow
   setInterval(tick, POLL_INTERVAL_MS);
   tick();
 }
+
+export interface UpcomingReminder {
+  title: string;
+  minutesUntil: number;
+  isAllDay: boolean;
+  eventType?: 'physical' | 'virtual' | 'unknown';
+}
+
+/** Returns the next event within the reminder window (for Hub ticker / pulse). */
+export async function getUpcomingReminder(): Promise<UpcomingReminder | null> {
+  const db = getDb();
+  if (!db) return null;
+  const active = getStoredJson(db, 'active_account') as string | null;
+  const legacy = getStoredJson(db, 'account') as { email?: string } | null;
+  const accountId = (active && typeof active === 'string') ? active : legacy?.email;
+  if (!accountId) return null;
+  const reminderMins = getReminderMinutes();
+  const events = await listEvents(accountId, 1);
+  const now = Date.now();
+  const windowEnd = now + reminderMins * 60 * 1000;
+  for (const ev of events) {
+    const start = new Date(ev.start).getTime();
+    if (start < now || start > windowEnd) continue;
+    const minutesUntil = Math.round((start - now) / 60000);
+    return {
+      title: ev.summary,
+      minutesUntil,
+      isAllDay: ev.isAllDay ?? false,
+      eventType: ev.eventType,
+    };
+  }
+  return null;
+}

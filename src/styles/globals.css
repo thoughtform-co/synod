@@ -131,6 +131,45 @@ body {
   user-select: none;
 }
 
+.shell-bar__hub {
+  -webkit-app-region: no-drag;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: none;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms, box-shadow 120ms;
+}
+.shell-bar__hub:hover {
+  color: var(--dawn);
+  border-color: var(--dawn-15);
+}
+.shell-bar__hub--active {
+  color: var(--dawn);
+  border-color: var(--gold);
+}
+.shell-bar__hub--pulse {
+  animation: hub-pulse 2s ease-in-out infinite;
+}
+@keyframes hub-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--gold-15); }
+  50% { box-shadow: 0 0 8px 2px var(--gold-15); }
+}
+.shell-bar__ticker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dawn-50);
+  margin-left: var(--space-sm);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shell-bar__notch {
   position: absolute;
   top: 0;
@@ -1681,6 +1720,69 @@ li:first-child > .thread-list__section-header {
   border-color: var(--dawn-15);
 }
 
+/* Invite card (RSVP / Add to Calendar) in thread view */
+.invite-card {
+  margin-bottom: var(--space-md);
+}
+.invite-card__frame {
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-08);
+  padding: var(--space-md);
+}
+.invite-card__title {
+  font-weight: 600;
+  color: var(--dawn);
+  font-size: 0.9375rem;
+  margin-bottom: var(--space-xs);
+}
+.invite-card__datetime {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--dawn-70);
+  margin-bottom: var(--space-xs);
+}
+.invite-card__location {
+  font-size: 0.8125rem;
+  color: var(--dawn-50);
+  margin-bottom: var(--space-sm);
+}
+.invite-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.invite-card__btn {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: 6px 12px;
+  border: 1px solid var(--dawn-15);
+  background: var(--surface-0);
+  color: var(--dawn);
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms;
+}
+.invite-card__btn:hover {
+  border-color: var(--dawn-30);
+  color: var(--dawn);
+}
+.invite-card__btn--accept {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.invite-card__btn--accept:hover {
+  background: var(--gold-15);
+}
+.invite-card__btn--maybe {
+  color: var(--dawn-70);
+}
+.invite-card__btn--add {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.invite-card__btn--add:hover {
+  background: var(--gold-15);
+}
+
 .thread-view__message {
   position: relative;
   border: 1px solid var(--dawn-08);
@@ -2270,6 +2372,121 @@ li:first-child > .thread-list__section-header {
   min-height: 0;
 }
 
+.shell-hub {
+  flex: 1;
+  overflow: hidden;
+  background: var(--void);
+  min-height: 0;
+}
+.hub {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.hub__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr minmax(200px, 280px) 1fr;
+  gap: 0;
+  min-height: 0;
+  border-top: 1px solid var(--dawn-08);
+}
+.hub__panel {
+  padding: var(--space-md);
+  overflow-y: auto;
+  border-right: 1px solid var(--dawn-08);
+  background: var(--surface-0);
+}
+.hub__panel--right {
+  border-right: none;
+  border-left: 1px solid var(--dawn-08);
+}
+.hub__section-header {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--dawn-40);
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+.hub__placeholder {
+  font-size: 0.8125rem;
+  color: var(--dawn-30);
+}
+.hub__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.hub__card {
+  padding: var(--space-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-08);
+  border-left: 2px solid var(--dawn-15);
+}
+.hub__card-title {
+  font-size: 0.8125rem;
+  color: var(--dawn);
+  font-weight: 500;
+}
+.hub__card-subtitle {
+  font-size: 0.75rem;
+  color: var(--dawn-50);
+  margin-top: 2px;
+}
+.hub__card-action {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--gold);
+  margin-top: 4px;
+}
+.hub__event {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: 4px 0;
+  font-size: 0.8125rem;
+  border-left: 2px solid var(--dawn-15);
+  padding-left: var(--space-xs);
+}
+.hub__event--today {
+  border-left-color: var(--gold);
+}
+.hub__event--physical {
+  border-left-color: var(--gold);
+}
+.hub__event--virtual {
+  border-left-color: var(--atreides-light);
+}
+.hub__event-time {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-50);
+  flex-shrink: 0;
+}
+.hub__event-title {
+  color: var(--dawn-70);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hub__center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--void);
+  min-width: 0;
+}
+.hub__viz {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+}
+
 /* ── Calendar: full grid view ── */
 
 .synod-cal {
@@ -2348,6 +2565,72 @@ li:first-child > .thread-list__section-header {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Pending invites feed (calendar sidebar) */
+.synod-cal__pending {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--dawn-08);
+}
+.synod-cal__pending-header {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--dawn-40);
+  text-transform: uppercase;
+  margin-bottom: var(--space-xs);
+}
+.synod-cal__pending-loading {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-40);
+}
+.synod-cal__pending-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.synod-cal__pending-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--dawn-70);
+  background: var(--surface-1);
+  border: 1px solid var(--dawn-08);
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms;
+  animation: invite-glow 2.5s ease-in-out infinite;
+}
+.synod-cal__pending-item:hover {
+  border-color: var(--gold);
+  color: var(--dawn);
+  box-shadow: 0 0 12px var(--gold-15);
+}
+.synod-cal__pending-subject {
+  font-weight: 500;
+  color: var(--dawn);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.synod-cal__pending-from {
+  font-size: 0.6875rem;
+  color: var(--dawn-50);
+}
+@keyframes invite-glow {
+  0%, 100% { box-shadow: 0 0 6px var(--gold-15); }
+  50% { box-shadow: 0 0 10px var(--gold-15); }
 }
 
 .synod-cal__reminder {
@@ -2467,9 +2750,9 @@ li:first-child > .thread-list__section-header {
 /* ── Toolbar ── */
 
 .synod-cal__toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--dawn-08);
   flex-shrink: 0;
@@ -2479,7 +2762,8 @@ li:first-child > .thread-list__section-header {
 .synod-cal__toolbar-left {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  justify-self: start;
 }
 
 .synod-cal__today-btn {
@@ -2492,6 +2776,24 @@ li:first-child > .thread-list__section-header {
   cursor: pointer;
   transition: color 120ms, border-color 120ms, background 120ms;
   border-radius: 0;
+  margin-right: var(--space-xs);
+  border-right: 1px solid var(--dawn-08);
+  padding-right: var(--space-sm);
+}
+
+.synod-cal__toolbar-center {
+  display: flex;
+  align-items: center;
+  justify-self: center;
+  gap: var(--space-xs);
+  transform: translateX(-110px);
+}
+
+.synod-cal__toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: var(--space-sm);
 }
 
 .synod-cal__today-btn:hover {
@@ -2520,21 +2822,20 @@ li:first-child > .thread-list__section-header {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--dawn);
-  margin-left: var(--space-xs);
+  margin: 0;
 }
 
 .synod-cal__search {
   position: relative;
   flex-shrink: 0;
-  margin-left: var(--space-md);
 }
 
 .synod-cal__search-bar {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  min-width: 180px;
-  max-width: 260px;
+  min-width: 200px;
+  width: 260px;
   padding: 6px 10px;
   border: 1px solid var(--dawn-08);
   background: var(--surface-1);
@@ -2648,7 +2949,6 @@ li:first-child > .thread-list__section-header {
   background: none;
   border: 1px solid var(--dawn-08);
   cursor: pointer;
-  margin-right: var(--space-xs);
 }
 
 .synod-cal__add-event-btn:hover {
@@ -2908,6 +3208,70 @@ li:first-child > .thread-list__section-header {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.synod-cal__editor-paste-zone {
+  border: 1px dashed var(--dawn-15);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--surface-0);
+}
+.synod-cal__editor-paste-zone--collapsed {
+  padding: var(--space-xs);
+  border-style: solid;
+}
+.synod-cal__editor-paste-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-40);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.synod-cal__editor-paste-preview {
+  position: relative;
+  max-width: 200px;
+  max-height: 120px;
+}
+.synod-cal__editor-paste-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  border: 1px solid var(--dawn-08);
+}
+.synod-cal__editor-paste-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 4, 3, 0.7);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn);
+}
+.synod-cal__editor-paste-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--dawn-50);
+  background: none;
+  border: 1px solid var(--dawn-08);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+.synod-cal__editor-paste-toggle:hover {
+  color: var(--dawn-70);
+  border-color: var(--dawn-15);
 }
 
 .synod-cal__editor-label {

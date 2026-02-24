@@ -84,6 +84,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reminder: {
     getMinutes: () => ipcRenderer.invoke('reminder:getMinutes'),
     setMinutes: (minutes: number) => ipcRenderer.invoke('reminder:setMinutes', minutes),
+    getUpcoming: () =>
+      ipcRenderer.invoke('reminder:getUpcoming') as Promise<{ title: string; minutesUntil: number; isAllDay: boolean } | null>,
   },
   windowControls: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
@@ -137,5 +139,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     reindexAccount: (accountId: string) => ipcRenderer.invoke('indexing:reindexAccount', accountId),
     purgeAccount: (accountId: string) => ipcRenderer.invoke('indexing:purgeAccount', accountId),
     getMetrics: () => ipcRenderer.invoke('indexing:getMetrics'),
+  },
+  claude: {
+    isConfigured: () => ipcRenderer.invoke('claude:isConfigured'),
+    analyzeEmail: (subject: string, bodyText: string) =>
+      ipcRenderer.invoke('claude:analyzeEmail', subject, bodyText),
+    extractEventFromImage: (imageBase64: string, mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp') =>
+      ipcRenderer.invoke('claude:extractEventFromImage', imageBase64, mediaType),
+    dashboardInsights: (input: {
+      unrepliedThreads: { threadId: string; subject: string; from: string; snippet: string; lastMessagePreview: string }[];
+      upcomingEvents: { id: string; summary: string; start: string; end: string; isAllDay: boolean; location?: string }[];
+      pendingInviteCount: number;
+    }) => ipcRenderer.invoke('claude:dashboardInsights', input),
+  },
+  ics: {
+    parse: (icsText: string) => ipcRenderer.invoke('ics:parse', icsText),
   },
 });

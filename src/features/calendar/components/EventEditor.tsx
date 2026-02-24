@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ImagePlus } from 'lucide-react';
 import type { CalendarEvent } from '../calendarClient';
 import { createEvent, updateEvent, deleteEvent, type CalendarEventInput } from '../calendarClient';
+import type { ExtractedEventFromImage } from '@/vite-env.d';
 
 const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'None' },
@@ -19,10 +20,23 @@ function toTimeInput(d: Date): string {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+export interface EventEditorPrefill {
+  summary?: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  isAllDay: boolean;
+  location?: string;
+  description?: string;
+}
+
 interface EventEditorProps {
   mode: 'create' | 'edit';
   initialDate?: Date;
   initialEvent?: CalendarEvent;
+  /** Pre-fill fields when mode is 'create' (e.g. from invite card or screenshot). */
+  initialPrefill?: EventEditorPrefill;
   accountId: string | undefined;
   calendarId: string;
   onClose: () => void;
@@ -34,32 +48,39 @@ export function EventEditor({
   mode,
   initialDate,
   initialEvent,
+  initialPrefill,
   accountId,
   calendarId,
   onClose,
   onSaved,
   onDeleted,
 }: EventEditorProps) {
-  const [summary, setSummary] = useState(initialEvent?.summary ?? '');
+  const [summary, setSummary] = useState(() =>
+    initialPrefill?.summary ?? initialEvent?.summary ?? ''
+  );
   const [startDate, setStartDate] = useState(() => {
+    if (initialPrefill) return initialPrefill.startDate;
     const d = initialEvent ? new Date(initialEvent.start) : (initialDate ?? new Date());
     return toDateInput(d);
   });
   const [startTime, setStartTime] = useState(() => {
+    if (initialPrefill) return initialPrefill.startTime;
     const d = initialEvent ? new Date(initialEvent.start) : (initialDate ?? new Date());
     return initialEvent?.isAllDay ? '09:00' : toTimeInput(d);
   });
   const [endDate, setEndDate] = useState(() => {
+    if (initialPrefill) return initialPrefill.endDate;
     const d = initialEvent ? new Date(initialEvent.end) : (initialDate ?? new Date());
     return toDateInput(d);
   });
   const [endTime, setEndTime] = useState(() => {
+    if (initialPrefill) return initialPrefill.endTime;
     const d = initialEvent ? new Date(initialEvent.end) : (initialDate ?? new Date());
     return initialEvent?.isAllDay ? '10:00' : toTimeInput(d);
   });
-  const [isAllDay, setIsAllDay] = useState(initialEvent?.isAllDay ?? false);
-  const [location, setLocation] = useState(initialEvent?.location ?? '');
-  const [description, setDescription] = useState(initialEvent?.description ?? '');
+  const [isAllDay, setIsAllDay] = useState(initialPrefill?.isAllDay ?? initialEvent?.isAllDay ?? false);
+  const [location, setLocation] = useState(initialPrefill?.location ?? initialEvent?.location ?? '');
+  const [description, setDescription] = useState(initialPrefill?.description ?? initialEvent?.description ?? '');
   const [attendees, setAttendees] = useState<string[]>(initialEvent ? [] : []); // API doesn't return attendees in list; we could skip for edit
   const [attendeeInput, setAttendeeInput] = useState('');
   const [recurrence, setRecurrence] = useState(initialEvent ? '' : '');
@@ -67,6 +88,75 @@ export function EventEditor({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pasteZoneCollapsed, setPasteZoneCollapsed] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [pastePreview, setPastePreview] = useState<string | null>(null);
+
+  const applyExtracted = useCallback((data: ExtractedEventFromImage) => {
+    if (data.title) setSummary(data.title);
+    if (data.date) setStartDate(data.date);
+    if (data.startTime) setStartTime(data.startTime);
+    if (data.endTime) setEndTime(data.endTime);
+    if (data.date) setEndDate(data.date);
+    if (data.location) setLocation(data.location);
+    if (data.description) setDescription(data.description);
+    setPasteZoneCollapsed(true);
+    setPastePreview(null);
+  }, []);
+
+  const processImage = useCallback(
+    async (file: File) => {
+      const api = window.electronAPI?.claude;
+      if (!api?.extractEventFromImage) return;
+      const mediaType = file.type as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+      if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mediaType)) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1];
+        if (!base64) return;
+        setPastePreview(dataUrl);
+        setExtracting(true);
+        api
+          .extractEventFromImage(base64, mediaType)
+          .then((result: ExtractedEventFromImage) => {
+            applyExtracted(result);
+          })
+          .catch(() => {
+            setPastePreview(null);
+          })
+          .finally(() => setExtracting(false));
+      };
+      reader.readAsDataURL(file);
+    },
+    [applyExtracted]
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      if (extracting || !window.electronAPI?.claude?.extractEventFromImage) return;
+      const item = Array.from(e.clipboardData.items).find((x) => x.type.startsWith('image/'));
+      if (!item) return;
+      const file = item.getAsFile();
+      if (file) {
+        e.preventDefault();
+        processImage(file);
+      }
+    },
+    [extracting, processImage]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (extracting) return;
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) processImage(file);
+    },
+    [extracting, processImage]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -167,7 +257,37 @@ export function EventEditor({
           </button>
         </div>
 
-        <div className="synod-cal__editor-body">
+        <div className="synod-cal__editor-body" onPaste={handlePaste}>
+          {mode === 'create' && (
+            <div
+              className={`synod-cal__editor-paste-zone ${pasteZoneCollapsed ? 'synod-cal__editor-paste-zone--collapsed' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+            >
+              {pasteZoneCollapsed ? (
+                <button
+                  type="button"
+                  className="synod-cal__editor-paste-toggle"
+                  onClick={() => setPasteZoneCollapsed(false)}
+                >
+                  <ImagePlus size={14} /> Paste another screenshot
+                </button>
+              ) : (
+                <>
+                  <div className="synod-cal__editor-paste-hint">
+                    <ImagePlus size={18} />
+                    <span>Paste screenshot to auto-fill</span>
+                  </div>
+                  {pastePreview && (
+                    <div className="synod-cal__editor-paste-preview">
+                      <img src={pastePreview} alt="Pasted" />
+                      {extracting && <span className="synod-cal__editor-paste-loading">Extracting…</span>}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <label className="synod-cal__editor-label">
             Title
             <input

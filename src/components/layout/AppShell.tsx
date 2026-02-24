@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Mail, Sun, Moon, Minus, Square, X } from 'lucide-react';
+import { Sun, Moon, Minus, Square, X } from 'lucide-react';
 import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import { type BaseTheme, applyTheme } from '@/app/App';
 import { MailSidebar } from '@/features/mail/components/MailSidebar';
@@ -8,6 +8,7 @@ import { ThreadList } from '@/features/mail/components/ThreadList';
 import { ThreadView } from '@/features/mail/components/ThreadView';
 import { ComposeView } from '@/features/mail/components/ComposeView';
 import { CalendarView } from '@/features/calendar/components/CalendarView';
+import { DashboardView } from '@/features/dashboard/components/DashboardView';
 import { storeGet, storeSet } from '@/lib/db/sqlite';
 import type { AccountsListResult, LocalSearchResult } from '@/vite-env.d';
 import type { MailView } from '@/features/mail/mailRepository';
@@ -16,7 +17,7 @@ import { getGoogleClientId, getGoogleClientSecret } from '@/features/auth/authSt
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ToastNotification, useToastQueue } from '@/components/shared/ToastNotification';
 
-type Tab = 'mail' | 'calendar';
+type Tab = 'mail' | 'calendar' | 'hub';
 
 const DEFAULT_MAIL_VIEW: MailView = { type: 'label', labelId: 'INBOX' };
 
@@ -41,7 +42,32 @@ export function AppShell() {
   const [searchResults, setSearchResults] = useState<LocalSearchResult[]>([]);
   const [composeOpen, setComposeOpen] = useState(false);
   const [glitchThreadId, setGlitchThreadId] = useState<string | null>(null);
+  const [eventPrefill, setEventPrefill] = useState<{
+    summary?: string;
+    startDate: string;
+    startTime: string;
+    endDate: string;
+    endTime: string;
+    isAllDay: boolean;
+    location?: string;
+    description?: string;
+  } | null>(null);
   const { toasts, addToast, dismiss } = useToastQueue();
+  const [upcomingReminder, setUpcomingReminder] = useState<{
+    title: string;
+    minutesUntil: number;
+    isAllDay: boolean;
+    eventType?: 'physical' | 'virtual' | 'unknown';
+  } | null>(null);
+
+  useEffect(() => {
+    const poll = () => {
+      window.electronAPI?.reminder?.getUpcoming?.()?.then((r) => setUpcomingReminder(r ?? null));
+    };
+    poll();
+    const id = setInterval(poll, 30 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const unsub = window.electronAPI?.notifications?.onShow?.((payload) => {
@@ -223,7 +249,23 @@ export function AppShell() {
     <div className="shell">
       <header className="shell-bar">
         <div className="shell-bar__left">
-          <span className="shell-bar__brand">SYNOD</span>
+          <button
+            type="button"
+            className={`shell-bar__hub ${activeTab === 'hub' ? 'shell-bar__hub--active' : ''} ${upcomingReminder ? 'shell-bar__hub--pulse' : ''}`}
+            onClick={() => setActiveTab('hub')}
+            aria-label="Hub"
+          >
+            HUB
+          </button>
+          {upcomingReminder && (
+            <span className="shell-bar__ticker">
+              {upcomingReminder.isAllDay
+                ? `${upcomingReminder.title} (today)`
+                : upcomingReminder.eventType === 'physical'
+                  ? `Leave for ${upcomingReminder.title} in ${upcomingReminder.minutesUntil} min`
+                  : `${upcomingReminder.title} in ${upcomingReminder.minutesUntil} min`}
+            </span>
+          )}
         </div>
         <div className="shell-bar__notch">
           <div className="shell-bar__notch-border" aria-hidden />
@@ -234,7 +276,7 @@ export function AppShell() {
               onClick={() => setActiveTab('mail')}
               aria-label="Mail"
             >
-              <Mail size={18} strokeWidth={1.5} />
+              <ParticleNavIcon shape="mail" size={18} active={activeTab === 'mail'} />
               <span className="shell-tab__label">Mail</span>
             </button>
             <button
@@ -358,6 +400,10 @@ export function AppShell() {
               isDoneView={mailView.type === 'query' && mailView.query === '-in:inbox -in:spam -in:trash'}
               onDone={advancePastThread}
               onDelete={advancePastThread}
+              onAddToCalendar={(prefill) => {
+                setActiveTab('calendar');
+                setEventPrefill(prefill);
+              }}
             />
           ) : (
             <div className="shell-mail__empty">
@@ -370,7 +416,23 @@ export function AppShell() {
         </main>
       </div>
       <main className="shell-calendar" style={{ display: activeTab === 'calendar' ? undefined : 'none' }}>
-        <CalendarView accountsResult={accountsResult} />
+        <CalendarView
+          accountsResult={accountsResult}
+          eventPrefill={eventPrefill}
+          onConsumePrefill={() => setEventPrefill(null)}
+          onOpenInvite={(threadId) => {
+            setActiveTab('mail');
+            setSelectedThreadId(threadId);
+          }}
+        />
+      </main>
+
+      <main
+        className="shell-hub"
+        style={{ display: activeTab === 'hub' ? undefined : 'none' }}
+        aria-label="Hub dashboard"
+      >
+        <DashboardView accountsResult={accountsResult} activeAccountId={activeAccountId} />
       </main>
       {settingsOpen && (
         <SettingsPanel

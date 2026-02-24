@@ -23,7 +23,7 @@ import {
 import { getThreadListFromDb, getThreadFromDb, searchThreadsLocal } from './mailCache';
 import { persistThreads, persistThreadFromApi, startSyncEngine, stopSyncEngine, onSyncStatus } from './syncEngine';
 import { listEvents, listEventsRange, listCalendars, respondToEvent, createEvent, updateEvent, deleteEvent } from './calendar';
-import { startReminderEngine } from './reminderEngine';
+import { startReminderEngine, getUpcomingReminder } from './reminderEngine';
 import { keywordSearch, semanticSearch, hybridSearch, isSearchConfigured } from './search/searchService';
 import { getSubscriptionOverview, getSubscriptionTimeline } from './indexing/subscriptionAnalytics';
 import { isIndexingConfigured, indexThread } from './indexing/indexer';
@@ -61,7 +61,18 @@ import {
   validateReminderMinutes,
   validateSearchArgs,
   validateSubscriptionOverviewArgs,
+  validateClaudeAnalyzeEmailArgs,
+  validateClaudeExtractEventFromImageArgs,
+  validateClaudeDashboardInsightsArgs,
+  validateIcsParseArgs,
 } from './ipcValidation';
+import {
+  isClaudeConfigured,
+  analyzeEmail,
+  extractEventFromImage,
+  dashboardInsights,
+} from './claude';
+import { parseIcs } from './icsParser';
 
 function getEffectiveAccountId(accountId: unknown): string | null {
   if (typeof accountId === 'string' && accountId) return accountId;
@@ -453,6 +464,29 @@ ipcMain.handle('indexing:purgeAccount', async (_event, accountId: unknown) => {
 });
 ipcMain.handle('indexing:getMetrics', () => getMetrics());
 
+ipcMain.handle('claude:isConfigured', () => isClaudeConfigured());
+ipcMain.handle('claude:analyzeEmail', async (_event, subject: unknown, bodyText: unknown) => {
+  if (!validateClaudeAnalyzeEmailArgs(subject, bodyText)) throw new Error('Invalid claude:analyzeEmail args');
+  return analyzeEmail(subject as string, bodyText as string);
+});
+ipcMain.handle('claude:extractEventFromImage', async (_event, imageBase64: unknown, mediaType: unknown) => {
+  if (!validateClaudeExtractEventFromImageArgs(imageBase64, mediaType))
+    throw new Error('Invalid claude:extractEventFromImage args');
+  return extractEventFromImage(
+    imageBase64 as string,
+    mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  );
+});
+ipcMain.handle('claude:dashboardInsights', async (_event, input: unknown) => {
+  if (!validateClaudeDashboardInsightsArgs(input)) throw new Error('Invalid claude:dashboardInsights args');
+  return dashboardInsights(input as Parameters<typeof dashboardInsights>[0]);
+});
+
+ipcMain.handle('ics:parse', (_event, icsText: unknown) => {
+  if (!validateIcsParseArgs(icsText)) throw new Error('Invalid ics:parse args');
+  return parseIcs(icsText as string);
+});
+
 ipcMain.handle('calendar:listCalendars', (_event, accountId: unknown) => {
   if (!optionalAccountId(accountId)) throw new Error('Invalid calendar:listCalendars args');
   return listCalendars(accountId as string | undefined);
@@ -554,6 +588,7 @@ ipcMain.handle('reminder:setMinutes', (_event, minutes: unknown) => {
   if (!validateReminderMinutes(minutes)) return;
   setKv('reminderMinutes', JSON.stringify(minutes));
 });
+ipcMain.handle('reminder:getUpcoming', () => getUpcomingReminder());
 
 // Window controls (frameless)
 ipcMain.handle('window:minimize', () => {

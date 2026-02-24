@@ -60,6 +60,12 @@ interface ElectronAPI {
   reminder: {
     getMinutes: () => Promise<number>;
     setMinutes: (minutes: number) => Promise<void>;
+    getUpcoming: () => Promise<{
+      title: string;
+      minutesUntil: number;
+      isAllDay: boolean;
+      eventType?: 'physical' | 'virtual' | 'unknown';
+    } | null>;
   };
   windowControls: {
     minimize: () => Promise<void>;
@@ -91,6 +97,72 @@ interface ElectronAPI {
     purgeAccount: (accountId: string) => Promise<void>;
     getMetrics: () => Promise<IndexingMetrics>;
   };
+  claude?: {
+    isConfigured: () => Promise<boolean>;
+    analyzeEmail: (subject: string, bodyText: string) => Promise<AnalyzeEmailResult>;
+    extractEventFromImage: (
+      imageBase64: string,
+      mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+    ) => Promise<ExtractedEventFromImage>;
+    dashboardInsights: (input: DashboardInsightsInput) => Promise<DashboardInsightsResult>;
+  };
+  ics?: {
+    parse: (icsText: string) => Promise<ParsedIcsEvent | null>;
+  };
+}
+
+export interface AnalyzeEmailResult {
+  isInvite: boolean;
+  confidence: number;
+  eventDetails?: {
+    title?: string;
+    date?: string;
+    time?: string;
+    location?: string;
+    description?: string;
+  };
+  actionItems?: string[];
+  suggestedReply?: string;
+}
+
+export interface ExtractedEventFromImage {
+  title?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  description?: string;
+}
+
+export interface ParsedIcsEvent {
+  summary?: string;
+  dtStart?: string;
+  dtEnd?: string;
+  location?: string;
+  description?: string;
+  organizer?: string;
+  method?: string;
+  eventId?: string;
+}
+
+export interface DashboardInsightsInput {
+  unrepliedThreads: { threadId: string; subject: string; from: string; snippet: string; lastMessagePreview: string }[];
+  upcomingEvents: { id: string; summary: string; start: string; end: string; isAllDay: boolean; location?: string }[];
+  pendingInviteCount: number;
+}
+
+export interface DashboardInsightItem {
+  type: 'unreplied' | 'task' | 'reminder';
+  threadId?: string;
+  title: string;
+  subtitle?: string;
+  suggestedAction?: string;
+  suggestedReply?: string;
+  priority: number;
+}
+
+export interface DashboardInsightsResult {
+  items: DashboardInsightItem[];
 }
 
 export interface IndexingMetrics {
@@ -148,6 +220,7 @@ export interface CalendarEvent {
   location?: string;
   description?: string;
   calendarId?: string;
+  eventType?: 'physical' | 'virtual' | 'unknown';
 }
 
 export interface CalendarEventInput {
@@ -188,6 +261,7 @@ export interface GmailMessage {
   bodyPlain?: string;
   bodyHtml?: string;
   attachments?: GmailAttachment[];
+  calendarIcs?: string;
   payload?: {
     mimeType?: string;
   };

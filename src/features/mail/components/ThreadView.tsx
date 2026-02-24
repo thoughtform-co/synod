@@ -7,7 +7,8 @@ import { formatEmailDate } from '../utils';
 import { ParticleNavIcon } from '@/components/shared/ParticleNavIcon';
 import { ReplyComposer } from './ReplyComposer';
 import { AttachmentPreview, isPreviewable } from '@/components/shared/AttachmentPreview';
-import type { GmailAttachment } from '@/vite-env.d';
+import { InviteCard } from './InviteCard';
+import type { GmailAttachment, ParsedIcsEvent, AnalyzeEmailResult } from '@/vite-env.d';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -31,6 +32,17 @@ interface ThreadViewProps {
   isDoneView?: boolean;
   onDone?: (threadId: string) => void;
   onDelete?: (threadId: string) => void;
+  /** When user clicks Add to Calendar from invite card, open calendar with pre-filled event. */
+  onAddToCalendar?: (prefill: {
+    summary?: string;
+    startDate: string;
+    startTime: string;
+    endDate: string;
+    endTime: string;
+    isAllDay: boolean;
+    location?: string;
+    description?: string;
+  }) => void;
 }
 
 function isFocusInEditable(): boolean {
@@ -193,7 +205,9 @@ const ThreadMessageRow = memo(function ThreadMessageRow({ msg, isExpanded, fromM
   );
 });
 
-export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDoneView, onDone, onDelete }: ThreadViewProps) {
+const INVITE_HEURISTIC = /\b(appointment|meeting|invite|consultation|schedule|confirmed|reservation|calendar event)\b|\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b|\b(mon|tue|wed|thu|fri|sat|sun)\s+\d{1,2}\b/i;
+
+export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDoneView, onDone, onDelete, onAddToCalendar }: ThreadViewProps) {
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,10 +215,55 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDone
   const [actionPending, setActionPending] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [previewAttachment, setPreviewAttachment] = useState<{ messageId: string; att: GmailAttachment } | null>(null);
+  const [parsedIcs, setParsedIcs] = useState<ParsedIcsEvent | null>(null);
+  const [aiDetected, setAiDetected] = useState<AnalyzeEmailResult | null>(null);
   const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const syncStatus = useSyncStatus();
   const prevSyncStatus = useRef(syncStatus);
+
+  const messageWithIcs = useMemo(
+    () => thread?.messages.find((m) => m.calendarIcs) ?? null,
+    [thread]
+  );
+
+  useEffect(() => {
+    if (!messageWithIcs?.calendarIcs || !window.electronAPI?.ics?.parse) {
+      setParsedIcs(null);
+      return;
+    }
+    window.electronAPI.ics.parse(messageWithIcs.calendarIcs).then(setParsedIcs);
+  }, [messageWithIcs?.calendarIcs]);
+
+  useEffect(() => {
+    if (parsedIcs || !thread || !window.electronAPI?.claude?.analyzeEmail || !onAddToCalendar) {
+      setAiDetected(null);
+      return;
+    }
+    const subject = thread.messages[0]?.subject ?? '';
+    const body = thread.messages
+      .filter((m) => !isFromCurrentUser(m.from, currentUserEmail ?? null))
+      .slice(-1)[0]
+      ?.bodyPlain ?? thread.messages[0]?.snippet ?? '';
+    const text = `${subject} ${body}`.slice(0, 8000);
+    if (!INVITE_HEURISTIC.test(text)) {
+      setAiDetected(null);
+      return;
+    }
+    let cancelled = false;
+    window.electronAPI.claude
+      .analyzeEmail(subject, body.slice(0, 50000))
+      .then((result) => {
+        if (!cancelled && result.isInvite && result.confidence >= 0.5) setAiDetected(result);
+        else if (!cancelled) setAiDetected(null);
+      })
+      .catch(() => {
+        if (!cancelled) setAiDetected(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [thread, parsedIcs, currentUserEmail, onAddToCalendar]);
 
   const scrollToBottom = useCallback((instant = false) => {
     requestAnimationFrame(() => {
@@ -498,6 +557,19 @@ export function ThreadView({ threadId, activeAccountId, currentUserEmail, isDone
           </div>
         </div>
       </header>
+      {(parsedIcs || aiDetected) && onAddToCalendar && (
+        <InviteCard
+          threadId={thread.id}
+          activeAccountId={activeAccountId}
+          subject={subject}
+          parsedIcs={parsedIcs}
+          aiDetected={aiDetected}
+          onAddToCalendar={onAddToCalendar}
+          onRsvpDone={() => {
+            fetchThread(activeAccountId ?? undefined, threadId).then((t) => t && setThread(t));
+          }}
+        />
+      )}
       <div className="thread-view__messages">
         {thread.messages.length > 2 && expandedIds.size < thread.messages.length && (
           <button

@@ -26,6 +26,7 @@ export type ParticleNavShapeKey =
   | 'embed'
   | 'reply'
   | 'forward'
+  | 'mail'
   | 'calendar'
   | 'event'
   | 'reminder';
@@ -444,6 +445,30 @@ function forwardPoints(): NavShapePoint[] {
   return buildIcon(skeleton, signal, 'forward');
 }
 
+/** Mail: envelope motif — rectangle outline with diagonal V flap. */
+function mailPoints(): NavShapePoint[] {
+  const top = -R + 1;
+  const bottom = R - 1;
+  const left = -R;
+  const right = R;
+  const rect = merge(
+    axis('h', left, right, 1.2, 0.85).map((p) => ({ ...p, y: top })),
+    axis('h', left, right, 1.2, 0.85).map((p) => ({ ...p, y: bottom })),
+    axis('v', top, bottom, 1.5, 0.8).map((p) => ({ ...p, x: left })),
+    axis('v', top, bottom, 1.5, 0.8).map((p) => ({ ...p, x: right }))
+  );
+  const flap: NavShapePoint[] = [];
+  const steps = 6;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    flap.push({ x: left + t * R, y: top + t * (R * 0.7), alpha: 0.9 });
+    flap.push({ x: right - t * R, y: top + t * (R * 0.7), alpha: 0.9 });
+  }
+  const skeleton = merge(rect, flap);
+  const signal = anchor({ y: top + R * 0.7 }, 1);
+  return buildIcon(skeleton, signal, 'mail');
+}
+
 /** Calendar: grid/frame motif — 4×4 dots with header line. */
 function calendarPoints(): NavShapePoint[] {
   const header = axis('h', -R + 1, R - 1, 1.5, 0.9).map((p) => ({ ...p, y: -R }));
@@ -505,6 +530,7 @@ const SHAPE_MAP: Record<ParticleNavShapeKey, () => NavShapePoint[]> = {
   embed: embedPoints,
   reply: replyPoints,
   forward: forwardPoints,
+  mail: mailPoints,
   calendar: calendarPoints,
   event: eventPoints,
   reminder: reminderPoints,

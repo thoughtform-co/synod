@@ -58,6 +58,7 @@ export interface CalendarEvent {
   location?: string;
   description?: string;
   calendarId?: string;
+  eventType?: 'physical' | 'virtual' | 'unknown';
 }
 
 const DEFAULT_DAYS_AHEAD = 14;
@@ -85,6 +86,22 @@ export function listCalendars(accountId?: string): Promise<CalendarListEntry[]> 
   });
 }
 
+const VIRTUAL_PATTERNS = [
+  'zoom.us',
+  'meet.google.com',
+  'teams.microsoft.com',
+  'webex.com',
+  'goToMeeting',
+  'whereby.com',
+];
+
+function classifyEventType(location?: string, description?: string): 'physical' | 'virtual' | 'unknown' {
+  const text = `${location ?? ''} ${description ?? ''}`.toLowerCase();
+  if (VIRTUAL_PATTERNS.some((p) => text.includes(p))) return 'virtual';
+  if (location && location.trim().length > 0 && !location.startsWith('http')) return 'physical';
+  return 'unknown';
+}
+
 function parseEventsFromResponse(
   items: import('googleapis').calendar_v3.Schema$Event[],
   calendarId: string
@@ -96,15 +113,18 @@ function parseEventsFromResponse(
     const startStr = event.start?.dateTime || event.start?.date;
     const endStr = event.end?.dateTime || event.end?.date;
     if (!startStr || !endStr) continue;
+    const location = event.location ?? undefined;
+    const description = event.description ?? undefined;
     events.push({
       id: event.id,
       summary: event.summary ?? '(No title)',
       start: startStr,
       end: endStr,
       isAllDay,
-      location: event.location ?? undefined,
-      description: event.description ?? undefined,
+      location,
+      description,
       calendarId,
+      eventType: classifyEventType(location, description),
     });
   }
   return events;
@@ -242,8 +262,8 @@ export function createEvent(
     });
     const created = res.data;
     if (!created.id || !created.start || !created.end) throw new Error('Invalid create response');
-    const startStr = created.start.dateTime || created.start.date ?? '';
-    const endStr = created.end.dateTime || created.end.date ?? '';
+    const startStr = (created.start.dateTime || created.start.date) ?? '';
+    const endStr = (created.end.dateTime || created.end.date) ?? '';
     return {
       id: created.id,
       summary: created.summary ?? '(No title)',
@@ -289,8 +309,8 @@ export function updateEvent(
     });
     const updated = res.data;
     if (!updated.id || !updated.start || !updated.end) throw new Error('Invalid patch response');
-    const startStr = updated.start.dateTime || updated.start.date ?? '';
-    const endStr = updated.end.dateTime || updated.end.date ?? '';
+    const startStr = (updated.start.dateTime || updated.start.date) ?? '';
+    const endStr = (updated.end.dateTime || updated.end.date) ?? '';
     return {
       id: updated.id,
       summary: updated.summary ?? '(No title)',

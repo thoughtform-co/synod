@@ -8,6 +8,7 @@ export interface CalendarEvent {
   description?: string;
   accountId?: string;
   calendarId?: string;
+  eventType?: 'physical' | 'virtual' | 'unknown';
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
